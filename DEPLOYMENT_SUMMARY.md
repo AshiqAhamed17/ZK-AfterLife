@@ -1,10 +1,9 @@
-# 🎉 ZK-AfterLife Contracts Deployed to Sepolia
+# ZK-AfterLife Contracts Deployed to Sepolia
 
-## ✅ **Deployment Status: SUCCESS**
+## **Deployment Status: SUCCESS**
 
 **Network:** Sepolia Testnet (Chain ID: 11155111)  
-**Deployment Date:** $(date)  
-**All Contracts:** ✅ Deployed & Verified
+
 
 ## 📋 **Contract Addresses**
 
@@ -47,27 +46,10 @@ const CONTRACT_ADDRESSES = {
 };
 ```
 
-### **2. Copy Frontend:**
 
-```bash
-# Copy frontend from zk-afterlife-agent
-cp -r /Users/ashiq/Documents/Hooman-Digital/zk-afterlife-agent/frontend/* \
-      /Users/ashiq/Documents/Hooman-Digital/ZK-AfterLife/frontend/
-```
-
-### **3. Update Contract Addresses:**
+## Update Contract Addresses
 
 - Replace contract addresses in frontend config
 - Test complete workflow
 - Ready for demo!
 
-## 🎯 **Demo Ready!**
-
-Your ZK-AfterLife project is now **fully deployed** and ready for the **3-minute demo**:
-
-1. ✅ **ZK Circuit** - Working (Noir)
-2. ✅ **Smart Contracts** - Deployed (Sepolia)
-3. ✅ **Demo Timing** - Optimized (30s/15s/5s)
-4. ✅ **Contract Verification** - Complete (Etherscan)
-
-**Perfect timing for live demonstration!** 🚀
