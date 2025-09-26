@@ -1,0 +1,6 @@
+[package]
+name = "will"
+type = "bin"
+authors = [""]
+
+[dependencies]
