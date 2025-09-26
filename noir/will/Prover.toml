@@ -1,0 +1,12 @@
+beneficiary_addresses = ["", "", "", "", "", "", "", ""]
+beneficiary_count = ""
+beneficiary_eth = ["", "", "", "", "", "", "", ""]
+beneficiary_nfts = ["", "", "", "", "", "", "", ""]
+beneficiary_usdc = ["", "", "", "", "", "", "", ""]
+merkle_root = ""
+total_eth = ""
+total_nft_count = ""
+total_usdc = ""
+will_commitment = ""
+will_data = ["", "", "", ""]
+will_salt = ""
