@@ -144,3 +144,32 @@ fn get_correct_values() -> (Field, Field) {
     
     (will_commitment, merkle_root)
 }
+
+
+#[test]
+fn test_get_values() {
+    let (will_commitment, merkle_root) = get_correct_values();
+    std::println(f"Will commitment: {will_commitment}");
+    std::println(f"Merkle root: {merkle_root}");
+}
+
+#[test]
+fn test_valid_will() {
+    let (will_commitment, merkle_root) = get_correct_values();
+    
+    main(
+        will_commitment,
+        merkle_root,
+        10, // total_eth
+        1000, // total_usdc
+        2, // total_nft_count
+        5, // will_salt
+        [1, 2, 3, 4], // will_data
+        3, // beneficiary_count
+        [1000, 2000, 3000, 0, 0, 0, 0, 0], // beneficiary_addresses
+        [4, 3, 3, 0, 0, 0, 0, 0], // beneficiary_eth
+        [400, 300, 300, 0, 0, 0, 0, 0], // beneficiary_usdc
+        [1, 1, 0, 0, 0, 0, 0, 0], // beneficiary_nfts
+    );
+}
+
