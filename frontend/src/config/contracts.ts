@@ -41,7 +41,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/K-dyWLoE75nGD_Z3Cv2Bg0tvUY67mYUw',
     rpcUrls: [
       'https://eth-sepolia.g.alchemy.com/v2/K-dyWLoE75nGD_Z3Cv2Bg0tvUY67mYUw',
-      
+
       'https://sepolia.infura.io/v3/e72ac8bced0f45b586f6eb9e42642aef',
       'https://rpc.sepolia.org',
       'https://sepolia.gateway.tenderly.co'
