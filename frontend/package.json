@@ -1,0 +1,42 @@
+{
+  "name": "zk-afterlife-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "sync:addresses": "ts-node scripts/sync-addresses.ts"
+  },
+  "dependencies": {
+    "@aztec/aztec.js": "^1.2.1",
+    "@aztec/bb.js": "^1.2.1",
+    "circomlibjs": "0.0.8",
+    "big-integer": "^1.6.51",
+    "@noir-lang/noir_js": "^1.0.0-beta.10",
+    "ethers": "^5.7.2",
+    "fflate": "^0.8.2",
+    "framer-motion": "^12.23.12",
+    "lucide-react": "^0.539.0",
+    "next": "14.2.5",
+    "next-themes": "^0.4.6",
+    "poseidon-lite": "^0.3.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "viem": "^2.33.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.5",
+    "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
+  }
+}
