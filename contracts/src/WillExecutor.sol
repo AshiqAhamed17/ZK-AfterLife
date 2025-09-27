@@ -20,6 +20,7 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
     error InvalidVerifier();
     error InvalidHeartbeat();
     error WillNotRegistered();
+    error WillAlreadyRegistered();
     error WillAlreadyExecuted();
     error InvalidProof();
     error InactivityNotFinalized();
@@ -91,6 +92,14 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
         bool isValid
     );
 
+    event EthWithdrawn(
+        bytes32 indexed willCommitment,
+        address indexed owner,
+        uint256 amount
+    );
+
+    event EmergencyWithdrawal(address indexed owner, uint256 amount);
+
     ////////////// CONSTRUCTOR //////////////
 
     constructor(address _verifier, address _heartbeat) Ownable(msg.sender) {
@@ -115,8 +124,12 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
         uint256 totalEth,
         uint256 totalUsdc,
         uint256 totalNfts
-    ) external whenNotPaused {
-        if (registeredWills[willCommitment].exists) revert WillNotRegistered();
+    ) external payable whenNotPaused {
+        if (registeredWills[willCommitment].exists)
+            revert WillAlreadyRegistered();
+
+        // Require ETH deposit to match totalEth allocation
+        if (msg.value != totalEth) revert InsufficientBalance();
 
         registeredWills[willCommitment] = RegisteredWill({
             owner: msg.sender,
@@ -136,6 +149,65 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
             totalUsdc,
             totalNfts
         );
+    }
+
+    /**
+     * @notice Withdraw ETH from a will (only by owner before execution)
+     * @param willCommitment The commitment hash of the will
+     */
+    function withdrawEth(bytes32 willCommitment) external nonReentrant {
+        RegisteredWill memory will = registeredWills[willCommitment];
+        if (!will.exists) revert WillNotRegistered();
+        if (will.owner != msg.sender) revert UnauthorizedExecution();
+        if (executedWills[willCommitment]) revert WillAlreadyExecuted();
+
+        uint256 amount = will.totalEth;
+        if (amount == 0) revert InsufficientBalance();
+
+        // Update the will to remove ETH allocation
+        registeredWills[willCommitment].totalEth = 0;
+
+        // Transfer ETH back to owner
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        if (!success) revert TransferFailed();
+
+        emit EthWithdrawn(willCommitment, msg.sender, amount);
+    }
+
+    /**
+     * @notice Withdraw all ETH from a will (only by owner before execution)
+     * @param willCommitment The commitment hash of the will
+     */
+    function withdrawAllEth(bytes32 willCommitment) external nonReentrant {
+        RegisteredWill memory will = registeredWills[willCommitment];
+        if (!will.exists) revert WillNotRegistered();
+        if (will.owner != msg.sender) revert UnauthorizedExecution();
+        if (executedWills[willCommitment]) revert WillAlreadyExecuted();
+
+        uint256 amount = will.totalEth;
+        if (amount == 0) revert InsufficientBalance();
+
+        // Update the will to remove ETH allocation
+        registeredWills[willCommitment].totalEth = 0;
+
+        // Transfer ETH back to owner
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        if (!success) revert TransferFailed();
+
+        emit EthWithdrawn(willCommitment, msg.sender, amount);
+    }
+
+    /**
+     * @notice Emergency withdrawal function for owner
+     * @param amount Amount of ETH to withdraw
+     */
+    function emergencyWithdraw(uint256 amount) external onlyOwner {
+        if (address(this).balance < amount) revert InsufficientBalance();
+
+        (bool success, ) = payable(owner()).call{value: amount}("");
+        if (!success) revert TransferFailed();
+
+        emit EmergencyWithdrawal(owner(), amount);
     }
 
     /**
