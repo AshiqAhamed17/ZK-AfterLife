@@ -7,6 +7,7 @@ import { SelfVerificationResult } from '../config/self';
 import SelfVerification from './SelfVerification';
 import Button from './ui/Button';
 import GlassCard from './ui/GlassCard';
+import { useWallet } from '../lib/WalletContext';
 
 interface Beneficiary {
   address: string;
@@ -25,6 +26,7 @@ interface WillData {
 }
 
 export default function WillRegistration() {
+  const { account, isConnected, connectWallet } = useWallet();
   const [step, setStep] = useState(1);
   const [willData, setWillData] = useState<WillData>({
     beneficiaries: [
@@ -40,7 +42,6 @@ export default function WillRegistration() {
   const [error, setError] = useState('');
   const [isSelfVerified, setIsSelfVerified] = useState(false);
   const [selfVerificationResult, setSelfVerificationResult] = useState<SelfVerificationResult | null>(null);
-  const [userAddress, setUserAddress] = useState<string>('');
 
   const addBeneficiary = () => {
     if (willData.beneficiaries.length < 4) {
@@ -87,7 +88,6 @@ export default function WillRegistration() {
   const handleSelfVerificationComplete = (result: SelfVerificationResult) => {
     setSelfVerificationResult(result);
     setIsSelfVerified(true);
-    setUserAddress(result.userAddress);
     // Move to next step after verification
     setStep(step + 1);
   };
@@ -162,6 +162,28 @@ export default function WillRegistration() {
         return <AlertCircle className="w-5 h-5" />;
     }
   };
+
+  // Check if wallet is connected
+  if (!isConnected) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-2xl mx-auto text-center"
+      >
+        <GlassCard className="p-8">
+          <Wallet className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-4">Connect Your Wallet</h2>
+          <p className="text-gray-300 mb-6">
+            Please connect your wallet to register a will and verify your identity with Self Protocol.
+          </p>
+          <Button onClick={connectWallet} className="bg-purple-600 hover:bg-purple-700 text-white">
+            Connect Wallet
+          </Button>
+        </GlassCard>
+      </motion.div>
+    );
+  }
 
   if (isSuccess) {
     return (
@@ -240,7 +262,7 @@ export default function WillRegistration() {
       {/* Step 1: Self Verification */}
       {step === 1 && (
         <SelfVerification
-          userAddress={userAddress || '0x0000000000000000000000000000000000000000'}
+          userAddress={account || '0x0000000000000000000000000000000000000000'}
           onVerificationComplete={handleSelfVerificationComplete}
           onBack={handleSelfVerificationBack}
         />

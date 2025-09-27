@@ -28,12 +28,14 @@ NEXT_PUBLIC_BLOCK_EXPLORER=https://celo-sepolia.blockscout.com
 ## Testing Steps
 
 1. **Start Frontend Development Server**
+
    ```bash
    cd frontend
    npm run dev
    ```
 
 2. **Test Integration**
+
    - Navigate to will registration
    - Test Self verification step
    - Test method selection (passport/Aadhaar)

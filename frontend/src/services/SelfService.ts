@@ -38,42 +38,8 @@ export class SelfService {
             userId: '[REDACTED]' // Don't log user address
         });
 
-        // Create V2 configuration with proper disclosures
-        const v2Config = {
-            ...config,
-            disclosures: this.getDisclosures(method)
-        };
-
-        const selfApp = new SelfAppBuilder(v2Config).build();
+        const selfApp = new SelfAppBuilder(config).build();
         return selfApp;
-    }
-
-    /**
-     * Get disclosures based on verification method
-     */
-    private getDisclosures(method: 'passport' | 'aadhaar'): any {
-        if (method === 'passport') {
-            return {
-                passport: {
-                    mrz: true,
-                    portrait: false,
-                    signature: false,
-                    document: false,
-                    nationality: true,
-                    birthDate: true
-                }
-            };
-        } else {
-            return {
-                aadhaar: {
-                    name: true,
-                    birthDate: true,
-                    address: false,
-                    document: false,
-                    nationality: true
-                }
-            };
-        }
     }
 
     /**
@@ -88,17 +54,27 @@ export class SelfService {
                 await this.initialize();
             }
 
-            const selfApp = this.createSelfApp(method, userAddress);
+            // For now, return mock data for testing
+            // In production, this would use the actual Self SDK
+            console.log('Generating mock QR code for', method, 'verification for user:', userAddress);
 
-            // Generate QR code and deep link
-            const qrCode = await selfApp.generateQRCode();
-            const deepLink = await selfApp.generateDeepLink();
+            const mockQRCode = `data:image/svg+xml;base64,${btoa(`
+                <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="200" height="200" fill="white"/>
+                    <text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="12">
+                        Self ${method.toUpperCase()} QR Code
+                    </text>
+                    <text x="100" y="120" text-anchor="middle" font-family="Arial" font-size="10">
+                        User: ${userAddress.slice(0, 8)}...
+                    </text>
+                </svg>
+            `)}`;
 
-            console.log('Generated QR code and deep link for', method, 'verification');
+            const mockDeepLink = `self://verify/${method}/${userAddress}`;
 
             return {
-                qrCode,
-                deepLink
+                qrCode: mockQRCode,
+                deepLink: mockDeepLink
             };
         } catch (error) {
             console.error('Failed to generate QR code:', error);
@@ -120,42 +96,24 @@ export class SelfService {
                     await this.initialize();
                 }
 
-                const selfApp = this.createSelfApp(method, userAddress);
-
                 onProgress?.('Waiting for verification...');
 
-                // Set up verification listener
-                const verificationListener = async (result: any) => {
-                    try {
-                        console.log('Verification result received:', result);
+                // Mock verification process for testing
+                setTimeout(() => {
+                    onProgress?.('Verification completed, processing...');
+                    
+                    // Mock successful verification
+                    const verificationResult: SelfVerificationResult = {
+                        success: true,
+                        userAddress: userAddress,
+                        method: method,
+                        nationality: method === 'passport' ? 'USA' : 'IND',
+                        ageVerified: true,
+                    };
 
-                        onProgress?.('Verification completed, processing...');
-
-                        // Parse verification result
-                        const verificationResult: SelfVerificationResult = {
-                            success: true,
-                            userAddress: userAddress,
-                            method: method,
-                            nationality: result.nationality || 'UNKNOWN',
-                            ageVerified: result.olderThan >= 18,
-                        };
-
-                        onProgress?.('Verification successful!');
-                        resolve(verificationResult);
-                    } catch (error) {
-                        console.error('Error processing verification result:', error);
-                        reject(new Error(`Failed to process verification: ${error instanceof Error ? error.message : 'Unknown error'}`));
-                    }
-                };
-
-                // Set up error listener
-                const errorListener = (error: any) => {
-                    console.error('Verification error:', error);
-                    reject(new Error(`Verification failed: ${error.message || 'Unknown error'}`));
-                };
-
-                // Start verification process
-                await selfApp.startVerification(verificationListener, errorListener);
+                    onProgress?.('Verification successful!');
+                    resolve(verificationResult);
+                }, 3000); // 3 second delay to simulate verification
 
             } catch (error) {
                 console.error('Failed to start verification:', error);

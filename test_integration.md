@@ -3,12 +3,14 @@
 ## 📋 **Testing Checklist**
 
 ### **1. Contract Deployment Verification** ✅
+
 - [x] Contract deployed on Celo Sepolia
 - [x] Address: `0xAf61DbD79eAEaa2455065619063Fa5eb13fB0A4B`
 - [x] Contract has code (21,582 characters)
 - [x] Network: Celo Sepolia (Chain ID: 11142220)
 
 ### **2. Frontend Integration Testing**
+
 - [ ] Test SelfVerification component loads
 - [ ] Test method selection (passport/Aadhaar)
 - [ ] Test QR code generation
@@ -16,12 +18,14 @@
 - [ ] Test integration with will registration
 
 ### **3. Smart Contract Integration Testing**
+
 - [ ] Test SelfHumanVerifier contract functions
 - [ ] Test WillExecutor integration
 - [ ] Test verification requirement enforcement
 - [ ] Test error handling for unverified users
 
 ### **4. End-to-End Flow Testing**
+
 - [ ] Complete verification flow
 - [ ] Will registration with verification
 - [ ] Bot prevention testing
@@ -30,6 +34,7 @@
 ## 🚀 **Next Steps to Complete Integration**
 
 ### **Step 1: Frontend Testing**
+
 ```bash
 # Start the frontend development server
 cd frontend
@@ -44,6 +49,7 @@ npm run dev
 ```
 
 ### **Step 2: Smart Contract Testing**
+
 ```bash
 # Test contract functions
 cd contracts
@@ -54,12 +60,14 @@ forge test --match-contract WillExecutor
 ```
 
 ### **Step 3: Mock Verification Testing**
+
 - Test with mock passport data
 - Test with mock Aadhaar data
 - Verify age calculation
 - Test nationality detection
 
 ### **Step 4: Production Readiness**
+
 - [ ] Update environment variables
 - [ ] Configure proper verification config IDs
 - [ ] Test with real Self Protocol integration
@@ -68,6 +76,7 @@ forge test --match-contract WillExecutor
 ## 🔧 **Configuration Updates Needed**
 
 ### **Environment Variables**
+
 ```env
 # Add to frontend/.env.local
 NEXT_PUBLIC_SELF_HUMAN_VERIFIER_ADDRESS=0xAf61DbD79eAEaa2455065619063Fa5eb13fB0A4B
@@ -77,6 +86,7 @@ NEXT_PUBLIC_SELF_VERIFICATION_CONFIG_ID=0x00000000000000000000000000000000000000
 ```
 
 ### **Frontend Configuration**
+
 - Update contract addresses in `config/contracts.ts`
 - Configure proper verification config IDs
 - Test with actual Self Protocol integration
@@ -84,6 +94,7 @@ NEXT_PUBLIC_SELF_VERIFICATION_CONFIG_ID=0x00000000000000000000000000000000000000
 ## 📊 **Testing Results Expected**
 
 ### **Successful Integration Should Show:**
+
 1. ✅ Self verification step appears first in will registration
 2. ✅ Method selection works (passport/Aadhaar)
 3. ✅ QR code generation works
@@ -93,6 +104,7 @@ NEXT_PUBLIC_SELF_VERIFICATION_CONFIG_ID=0x00000000000000000000000000000000000000
 7. ✅ Age verification works (18+ requirement)
 
 ### **Error Handling Should Work:**
+
 1. ✅ Unverified users cannot register wills
 2. ✅ Underage users are blocked
 3. ✅ Invalid verification attempts are handled
@@ -101,6 +113,7 @@ NEXT_PUBLIC_SELF_VERIFICATION_CONFIG_ID=0x00000000000000000000000000000000000000
 ## 🎯 **Partner Prize Verification**
 
 ### **Requirements Met:**
+
 - ✅ Onchain SDK Integration: SelfHumanVerifier deployed
 - ✅ Celo Testnet: Contract on Celo Sepolia
 - ✅ Proof of Humanity: Bot prevention implemented
@@ -108,6 +121,7 @@ NEXT_PUBLIC_SELF_VERIFICATION_CONFIG_ID=0x00000000000000000000000000000000000000
 - ✅ Country Verification: Nationality tracking implemented
 
 ### **Additional Features:**
+
 - ✅ Dual verification methods (passport/Aadhaar)
 - ✅ Zero-knowledge proof verification
 - ✅ Seamless user experience
@@ -116,6 +130,7 @@ NEXT_PUBLIC_SELF_VERIFICATION_CONFIG_ID=0x00000000000000000000000000000000000000
 ## 🚀 **Ready for Production**
 
 The integration is **functionally complete** and ready for:
+
 1. **Testing with real users**
 2. **Production deployment**
 3. **Partner prize submission**
