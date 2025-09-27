@@ -12,9 +12,10 @@
   "dependencies": {
     "@aztec/aztec.js": "^1.2.1",
     "@aztec/bb.js": "^1.2.1",
-    "circomlibjs": "0.0.8",
-    "big-integer": "^1.6.51",
     "@noir-lang/noir_js": "^1.0.0-beta.10",
+    "@selfxyz/core": "^1.0.8",
+    "big-integer": "^1.6.51",
+    "circomlibjs": "0.0.8",
     "ethers": "^5.7.2",
     "fflate": "^0.8.2",
     "framer-motion": "^12.23.12",
