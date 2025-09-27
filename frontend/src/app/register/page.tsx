@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button';
 import GlassCard from '@/components/ui/GlassCard';
 import { useWallet } from '@/lib/WalletContext';
 import { blockchainService } from '@/services/blockchain';
+import { selfProtocolService, SelfVerificationResult } from '@/services/SelfProtocolService';
 import { motion } from 'framer-motion';
 import {
     AlertCircle,
@@ -22,7 +23,7 @@ import {
     Users,
     Wallet
 } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 interface Beneficiary {
     address: string;
@@ -46,6 +47,10 @@ export default function RegisterWill() {
     const [step, setStep] = useState(0); // Start with Self verification
     const [isSelfVerified, setIsSelfVerified] = useState(false);
     const [selfVerificationMethod, setSelfVerificationMethod] = useState<'passport' | 'aadhaar' | null>(null);
+    const [verificationStep, setVerificationStep] = useState<'select' | 'instructions' | 'qr' | 'verifying' | 'completed'>('select');
+    const [qrCode, setQrCode] = useState<string>('');
+    const [deepLink, setDeepLink] = useState<string>('');
+    const [verificationStatus, setVerificationStatus] = useState<string>('');
     const [willData, setWillData] = useState<WillData>({
         beneficiaries: [
             { address: '', ethAmount: '', usdcAmount: '', nftCount: '', name: '' }
@@ -171,6 +176,86 @@ export default function RegisterWill() {
         navigator.clipboard.writeText(text);
     };
 
+    const handleVerificationMethodSelect = (method: 'passport' | 'aadhaar') => {
+        setSelfVerificationMethod(method);
+        setVerificationStep('instructions');
+    };
+
+    const generateQRCode = async () => {
+        if (!account || !selfVerificationMethod) return;
+
+        setVerificationStep('qr');
+        try {
+            const qrResult = await selfProtocolService.generateQRCode(selfVerificationMethod, account);
+            setQrCode(qrResult.qrCode);
+            setDeepLink(qrResult.deepLink);
+            console.log('✅ QR Code generated successfully');
+        } catch (error) {
+            console.error('❌ Failed to generate QR code:', error);
+            setLocalError('Failed to generate QR code. Please try again.');
+            setVerificationStep('instructions');
+        }
+    };
+
+    const startVerification = async () => {
+        if (!account || !selfVerificationMethod) return;
+
+        setVerificationStep('verifying');
+        setVerificationStatus('Waiting for verification...');
+
+        try {
+            const result: SelfVerificationResult = await selfProtocolService.waitForVerification(
+                selfVerificationMethod,
+                account,
+                (status) => setVerificationStatus(status)
+            );
+
+            if (result.success) {
+                setIsSelfVerified(true);
+                setVerificationStep('completed');
+                console.log('✅ Self verification completed successfully');
+                setTimeout(() => {
+                    setStep(1);
+                }, 2000);
+            } else {
+                throw new Error('Verification failed');
+            }
+        } catch (error) {
+            console.error('❌ Verification failed:', error);
+            setLocalError('Verification failed. Please try again.');
+            setVerificationStep('qr');
+        }
+    };
+
+    const resetVerification = () => {
+        setVerificationStep('select');
+        setSelfVerificationMethod(null);
+        setQrCode('');
+        setDeepLink('');
+        setVerificationStatus('');
+        setIsSelfVerified(false);
+    };
+
+    // Check if user is already verified when component mounts
+    React.useEffect(() => {
+        const checkExistingVerification = async () => {
+            if (account && step === 0) {
+                try {
+                    const isVerified = await selfProtocolService.checkVerificationStatus(account);
+                    if (isVerified) {
+                        setIsSelfVerified(true);
+                        setVerificationStep('completed');
+                        console.log('✅ User is already verified');
+                    }
+                } catch (error) {
+                    console.log('ℹ️ No existing verification found');
+                }
+            }
+        };
+
+        checkExistingVerification();
+    }, [account, step]);
+
     if (!isConnected) {
         return (
             <div className="container mx-auto px-4 py-16">
@@ -258,44 +343,176 @@ export default function RegisterWill() {
                                 <p className="text-green-300 font-semibold">✅ Partner Prize Requirements Met:</p>
                                 <p className="text-green-200 text-sm">Onchain SDK Integration • Celo Testnet • Proof of Humanity • Age Verification • Country Verification</p>
                             </div>
-                            
-                            <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-6 mb-6">
-                                <h3 className="text-lg font-semibold text-blue-400 mb-2">Identity Verification Required</h3>
-                                <p className="text-blue-300 mb-4">
-                                    Choose your verification method:
+
+                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
+                                <p className="text-yellow-300 font-semibold">⚠️ Demo Mode:</p>
+                                <p className="text-yellow-200 text-sm">
+                                    This is a demonstration of Self Protocol integration. For production, the contract needs proper verification configuration setup in the Self Protocol system.
                                 </p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <button 
-                                        onClick={() => {
-                                            setIsSelfVerified(true);
-                                            setSelfVerificationMethod('passport');
-                                            setStep(1);
-                                        }}
-                                        className="p-4 bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors"
+                            </div>
+
+                            {localError && (
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+                                    <p className="text-red-300 font-semibold">❌ Error:</p>
+                                    <p className="text-red-200 text-sm">{localError}</p>
+                                    <button
+                                        onClick={() => setLocalError('')}
+                                        className="mt-2 text-red-400 hover:text-red-300 text-sm underline"
                                     >
-                                        <div className="text-4xl mb-2">🌍</div>
-                                        <h4 className="font-semibold text-white">Passport NFC</h4>
-                                        <p className="text-sm text-gray-300">International passport verification</p>
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                            setIsSelfVerified(true);
-                                            setSelfVerificationMethod('aadhaar');
-                                            setStep(1);
-                                        }}
-                                        className="p-4 bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors"
-                                    >
-                                        <div className="text-4xl mb-2">🇮🇳</div>
-                                        <h4 className="font-semibold text-white">Aadhaar QR</h4>
-                                        <p className="text-sm text-gray-300">Indian Aadhaar verification</p>
+                                        Dismiss
                                     </button>
                                 </div>
-                            </div>
-                            
-                            <div className="text-sm text-gray-400">
+                            )}
+
+                            {/* Method Selection */}
+                            {verificationStep === 'select' && (
+                                <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-6 mb-6">
+                                    <h3 className="text-lg font-semibold text-blue-400 mb-2">Identity Verification Required</h3>
+                                    <p className="text-blue-300 mb-4">
+                                        Choose your verification method:
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <button
+                                            onClick={() => handleVerificationMethodSelect('passport')}
+                                            className="p-4 bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors"
+                                        >
+                                            <div className="text-4xl mb-2">🌍</div>
+                                            <h4 className="font-semibold text-white">Passport NFC</h4>
+                                            <p className="text-sm text-gray-300">International passport verification</p>
+                                        </button>
+                                        <button
+                                            onClick={() => handleVerificationMethodSelect('aadhaar')}
+                                            className="p-4 bg-white/10 border border-white/20 rounded-lg hover:bg-white/20 transition-colors"
+                                        >
+                                            <div className="text-4xl mb-2">🇮🇳</div>
+                                            <h4 className="font-semibold text-white">Aadhaar QR</h4>
+                                            <p className="text-sm text-gray-300">Indian Aadhaar verification</p>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Instructions */}
+                            {verificationStep === 'instructions' && (
+                                <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-6 mb-6">
+                                    <h3 className="text-lg font-semibold text-blue-400 mb-4">
+                                        {selfVerificationMethod === 'passport' ? '🌍 Passport NFC Verification' : '🇮🇳 Aadhaar QR Verification'}
+                                    </h3>
+
+                                    <div className="text-left space-y-4">
+                                        {selfProtocolService.getInstructions(selfVerificationMethod).map((instruction, index) => (
+                                            <div key={index} className="bg-white/10 rounded-lg p-4">
+                                                <h4 className="font-semibold text-white mb-2">Step {index + 1}</h4>
+                                                <p className="text-gray-300 text-sm">{instruction}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="flex gap-4 mt-6">
+                                        <button
+                                            onClick={resetVerification}
+                                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                                        >
+                                            Back
+                                        </button>
+                                        <button
+                                            onClick={generateQRCode}
+                                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                        >
+                                            Generate QR Code
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* QR Code Display */}
+                            {verificationStep === 'qr' && (
+                                <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-6 mb-6">
+                                    <h3 className="text-lg font-semibold text-blue-400 mb-4">
+                                        Scan QR Code with Self App
+                                    </h3>
+                                    <div className="flex flex-col items-center space-y-4">
+                                        <div className="bg-white p-4 rounded-lg">
+                                            <img src={qrCode} alt="Self Verification QR Code" className="w-48 h-48" />
+                                        </div>
+                                        <p className="text-gray-300 text-sm text-center">
+                                            Open Self app and scan this QR code to verify your identity
+                                        </p>
+
+                                        {/* Deep Link Button */}
+                                        {deepLink && (
+                                            <div className="flex flex-col items-center space-y-2">
+                                                <button
+                                                    onClick={() => window.open(deepLink, '_blank')}
+                                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                                                >
+                                                    Open in Self App
+                                                </button>
+                                                <p className="text-gray-400 text-xs text-center max-w-xs">
+                                                    Or copy this link: <span className="font-mono text-xs break-all">{deepLink.slice(0, 50)}...</span>
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        <button
+                                            onClick={startVerification}
+                                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                        >
+                                            I've Scanned the QR Code
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Verification in Progress */}
+                            {verificationStep === 'verifying' && (
+                                <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-6 mb-6">
+                                    <h3 className="text-lg font-semibold text-blue-400 mb-4">
+                                        Verifying Identity...
+                                    </h3>
+                                    <div className="flex flex-col items-center space-y-4">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400"></div>
+                                        <p className="text-gray-300">{verificationStatus}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Verification Completed */}
+                            {verificationStep === 'completed' && (
+                                <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-6 mb-6">
+                                    <h3 className="text-lg font-semibold text-green-400 mb-4">
+                                        ✅ Verification Successful!
+                                    </h3>
+                                    <div className="flex flex-col items-center space-y-4">
+                                        <div className="text-6xl">🎉</div>
+                                        <p className="text-green-300">
+                                            Your identity has been verified using {selfVerificationMethod === 'passport' ? 'Passport NFC' : 'Aadhaar QR'}
+                                        </p>
+                                        <p className="text-gray-300 text-sm">
+                                            Proceeding to will registration...
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="text-sm text-gray-400 mb-4">
                                 <p>✅ Bot prevention through humanity verification</p>
                                 <p>✅ Age verification (18+ requirement)</p>
                                 <p>✅ Country verification with nationality tracking</p>
+                            </div>
+
+                            {/* Skip verification for testing */}
+                            <div className="text-center">
+                                <button
+                                    onClick={() => {
+                                        setIsSelfVerified(true);
+                                        setSelfVerificationMethod('passport');
+                                        setStep(1);
+                                    }}
+                                    className="text-gray-400 hover:text-gray-300 text-sm underline"
+                                >
+                                    Skip verification for testing
+                                </button>
                             </div>
                         </div>
                     </motion.div>
