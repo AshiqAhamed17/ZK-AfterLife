@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./WillVerifier.sol";
+import "./SelfHumanVerifier.sol";
 
 /**
  * @title WillExecutor
@@ -19,6 +20,7 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
 
     error InvalidVerifier();
     error InvalidHeartbeat();
+    error InvalidSelfVerifier();
     error WillNotRegistered();
     error WillAlreadyRegistered();
     error WillAlreadyExecuted();
@@ -27,6 +29,8 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
     error UnauthorizedExecution();
     error InsufficientBalance();
     error TransferFailed();
+    error SelfVerificationRequired();
+    error AgeVerificationRequired();
 
     ////////////// STORAGE //////////////
 
@@ -35,6 +39,9 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Address of the heartbeat contract
     address public immutable heartbeat;
+
+    /// @notice Address of the Self human verifier contract
+    SelfHumanVerifier public immutable selfVerifier;
 
     /// @notice Mapping of will commitments to execution status
     mapping(bytes32 => bool) public executedWills;
@@ -102,12 +109,29 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
 
     ////////////// CONSTRUCTOR //////////////
 
-    constructor(address _verifier, address _heartbeat) Ownable(msg.sender) {
+    constructor(
+        address _verifier,
+        address _heartbeat,
+        address _selfVerifier
+    ) Ownable(msg.sender) {
         if (_verifier == address(0)) revert InvalidVerifier();
         if (_heartbeat == address(0)) revert InvalidHeartbeat();
+        if (_selfVerifier == address(0)) revert InvalidSelfVerifier();
 
         verifier = WillVerifier(_verifier);
         heartbeat = _heartbeat;
+        selfVerifier = SelfHumanVerifier(_selfVerifier);
+    }
+
+    ////////////// MODIFIERS //////////////
+
+    /// @notice Modifier to ensure only Self-verified humans can register wills
+    modifier onlyVerifiedHumans() {
+        if (!selfVerifier.isHumanVerified(msg.sender))
+            revert SelfVerificationRequired();
+        if (!selfVerifier.isAgeValid(msg.sender))
+            revert AgeVerificationRequired();
+        _;
     }
 
     ////////////// EXTERNAL FUNCTIONS //////////////
@@ -124,7 +148,7 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
         uint256 totalEth,
         uint256 totalUsdc,
         uint256 totalNfts
-    ) external payable whenNotPaused {
+    ) external payable whenNotPaused onlyVerifiedHumans {
         if (registeredWills[willCommitment].exists)
             revert WillAlreadyRegistered();
 
@@ -321,6 +345,42 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
             totalNftCount,
             proof
         );
+    }
+
+    ////////////// SELF VERIFICATION FUNCTIONS //////////////
+
+    /**
+     * @notice Check if a user is Self-verified and meets age requirements
+     * @param userAddress The address to check
+     * @return isVerified True if user is verified as human and meets age requirement
+     */
+    function isUserVerified(
+        address userAddress
+    ) external view returns (bool isVerified) {
+        return selfVerifier.isFullyVerified(userAddress);
+    }
+
+    /**
+     * @notice Get Self verification details for a user
+     * @param userAddress The address to check
+     * @return isHuman True if verified as human
+     * @return ageValid True if meets age requirement
+     * @return method The verification method used ("passport" or "aadhaar")
+     * @return nationality The user's nationality
+     */
+    function getUserSelfVerificationDetails(
+        address userAddress
+    )
+        external
+        view
+        returns (
+            bool isHuman,
+            bool ageValid,
+            string memory method,
+            string memory nationality
+        )
+    {
+        return selfVerifier.getUserVerificationDetails(userAddress);
     }
 
     ////////////// VIEW FUNCTIONS //////////////

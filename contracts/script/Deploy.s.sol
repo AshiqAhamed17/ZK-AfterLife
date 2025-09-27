@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.29;
+pragma solidity ^0.8.28;
 
 import "forge-std/Script.sol";
 import "../src/L1Heartbeat.sol";
@@ -13,7 +13,7 @@ import "../src/NoirIntegration.sol";
 /// @notice Deploys all contracts with DEMO-OPTIMIZED timing for 3-minute presentation
 /// @dev Run with: forge script script/Deploy.s.sol --rpc-url <RPC_URL> --broadcast
 contract DeployScript is Script {
-    // DEMO Configuration 
+    // DEMO Configuration
     // Just for demo, real inactivity period is about 365 days and Grace period is 30 days
     uint256 constant INACTIVITY_PERIOD = 30 seconds; // 30 seconds (was 365 days)
     uint256 constant GRACE_PERIOD = 15 seconds; // 15 seconds (was 30 days)
@@ -90,7 +90,8 @@ contract DeployScript is Script {
         console.log("\n4. Deploying WillExecutor...");
         WillExecutor willExecutor = new WillExecutor(
             address(willVerifier),
-            address(l1Heartbeat)
+            address(l1Heartbeat),
+            address(0) // Placeholder for selfVerifier - will be updated later
         );
         console.log("WillExecutor deployed at:", address(willExecutor));
 
