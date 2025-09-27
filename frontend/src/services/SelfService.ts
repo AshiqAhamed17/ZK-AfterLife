@@ -38,8 +38,42 @@ export class SelfService {
             userId: '[REDACTED]' // Don't log user address
         });
 
-        const selfApp = new SelfAppBuilder(config).build();
+        // Create V2 configuration with proper disclosures
+        const v2Config = {
+            ...config,
+            disclosures: this.getDisclosures(method)
+        };
+
+        const selfApp = new SelfAppBuilder(v2Config).build();
         return selfApp;
+    }
+
+    /**
+     * Get disclosures based on verification method
+     */
+    private getDisclosures(method: 'passport' | 'aadhaar'): any {
+        if (method === 'passport') {
+            return {
+                passport: {
+                    mrz: true,
+                    portrait: false,
+                    signature: false,
+                    document: false,
+                    nationality: true,
+                    birthDate: true
+                }
+            };
+        } else {
+            return {
+                aadhaar: {
+                    name: true,
+                    birthDate: true,
+                    address: false,
+                    document: false,
+                    nationality: true
+                }
+            };
+        }
     }
 
     /**

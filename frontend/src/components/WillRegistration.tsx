@@ -1,12 +1,12 @@
 "use client";
 
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowRight, CheckCircle, FileText, Shield, Users, Wallet, UserCheck } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle, FileText, Shield, UserCheck, Users, Wallet } from 'lucide-react';
 import { useState } from 'react';
+import { SelfVerificationResult } from '../config/self';
+import SelfVerification from './SelfVerification';
 import Button from './ui/Button';
 import GlassCard from './ui/GlassCard';
-import SelfVerification from './SelfVerification';
-import { SelfVerificationResult } from '../config/self';
 
 interface Beneficiary {
   address: string;
