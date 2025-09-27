@@ -1,5 +1,6 @@
 "use client";
 
+import DynamicAssetValuation from '@/components/DynamicAssetValuation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import GlassCard from '@/components/ui/GlassCard';
@@ -854,6 +855,25 @@ export default function RegisterWill() {
                                         ))}
                                     </div>
                                 </div>
+
+                                {/* 🏆 PRIZE-WINNING FEATURE: Dynamic Asset Valuation with Pyth Network */}
+                                <DynamicAssetValuation
+                                    assets={['ETH', 'USDC']}
+                                    amounts={[
+                                        willData.beneficiaries.reduce((sum, ben) => sum + parseFloat(ben.ethAmount || '0'), 0).toString(),
+                                        willData.beneficiaries.reduce((sum, ben) => sum + parseFloat(ben.usdcAmount || '0'), 0).toString()
+                                    ]}
+                                    beneficiaries={willData.beneficiaries.map(b => b.address)}
+                                    percentages={willData.beneficiaries.map((_, index) => {
+                                        // Calculate percentage based on ETH amounts (simplified)
+                                        const totalEth = willData.beneficiaries.reduce((sum, ben) => sum + parseFloat(ben.ethAmount || '0'), 0);
+                                        if (totalEth === 0) return 100 / willData.beneficiaries.length;
+                                        return (parseFloat(willData.beneficiaries[index].ethAmount || '0') / totalEth) * 100;
+                                    })}
+                                    onDistributionCalculated={(distribution) => {
+                                        console.log('🏆 Dynamic distribution calculated:', distribution);
+                                    }}
+                                />
 
                                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                                     <div className="flex items-start">

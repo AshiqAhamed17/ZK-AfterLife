@@ -15,7 +15,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@pythnetwork/pyth-sdk-solidity": "^4.2.0",
     "@selfxyz/contracts": "^1.2.0",
     "@selfxyz/core": "^1.0.8"
+  },
+  "devDependencies": {
+    "mocha": "^10.8.2"
   }
 }
