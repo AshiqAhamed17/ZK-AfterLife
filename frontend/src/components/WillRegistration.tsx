@@ -1,10 +1,12 @@
 "use client";
 
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowRight, CheckCircle, FileText, Shield, Users, Wallet } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle, FileText, Shield, Users, Wallet, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import Button from './ui/Button';
 import GlassCard from './ui/GlassCard';
+import SelfVerification from './SelfVerification';
+import { SelfVerificationResult } from '../config/self';
 
 interface Beneficiary {
   address: string;
@@ -36,6 +38,9 @@ export default function WillRegistration() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [isSelfVerified, setIsSelfVerified] = useState(false);
+  const [selfVerificationResult, setSelfVerificationResult] = useState<SelfVerificationResult | null>(null);
+  const [userAddress, setUserAddress] = useState<string>('');
 
   const addBeneficiary = () => {
     if (willData.beneficiaries.length < 4) {
@@ -73,7 +78,23 @@ export default function WillRegistration() {
     if (willData.beneficiaries.some(b => !b.ethAmount && !b.usdcAmount && !b.nftCount)) {
       return 'Each beneficiary must have at least one asset allocation';
     }
+    if (!isSelfVerified) {
+      return 'Self verification is required to register a will';
+    }
     return null;
+  };
+
+  const handleSelfVerificationComplete = (result: SelfVerificationResult) => {
+    setSelfVerificationResult(result);
+    setIsSelfVerified(true);
+    setUserAddress(result.userAddress);
+    // Move to next step after verification
+    setStep(step + 1);
+  };
+
+  const handleSelfVerificationBack = () => {
+    // Go back to previous step
+    setStep(step - 1);
   };
 
   const handleSubmit = async () => {
@@ -105,11 +126,41 @@ export default function WillRegistration() {
   };
 
   const nextStep = () => {
-    if (step < 3) setStep(step + 1);
+    if (step < 4) setStep(step + 1);
   };
 
   const prevStep = () => {
     if (step > 1) setStep(step - 1);
+  };
+
+  const getStepTitle = (stepNumber: number) => {
+    switch (stepNumber) {
+      case 1:
+        return 'Identity Verification';
+      case 2:
+        return 'Will Details';
+      case 3:
+        return 'Beneficiaries';
+      case 4:
+        return 'Confirmation';
+      default:
+        return 'Unknown Step';
+    }
+  };
+
+  const getStepIcon = (stepNumber: number) => {
+    switch (stepNumber) {
+      case 1:
+        return <UserCheck className="w-5 h-5" />;
+      case 2:
+        return <FileText className="w-5 h-5" />;
+      case 3:
+        return <Users className="w-5 h-5" />;
+      case 4:
+        return <Shield className="w-5 h-5" />;
+      default:
+        return <AlertCircle className="w-5 h-5" />;
+    }
   };
 
   if (isSuccess) {
@@ -155,17 +206,17 @@ export default function WillRegistration() {
 
       {/* Progress Steps */}
       <div className="flex justify-center mb-8">
-        {[1, 2, 3].map((stepNum) => (
+        {[1, 2, 3, 4].map((stepNum) => (
           <div key={stepNum} className="flex items-center">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= stepNum ? 'bg-purple-500' : 'bg-gray-600'
               }`}>
               {step > stepNum ? (
                 <CheckCircle className="w-5 h-5 text-white" />
               ) : (
-                <span className="text-white font-semibold">{stepNum}</span>
+                step === stepNum ? getStepIcon(stepNum) : <span className="text-white font-semibold">{stepNum}</span>
               )}
             </div>
-            {stepNum < 3 && (
+            {stepNum < 4 && (
               <div className={`w-16 h-1 mx-2 ${step > stepNum ? 'bg-purple-500' : 'bg-gray-600'
                 }`} />
             )}
@@ -173,8 +224,30 @@ export default function WillRegistration() {
         ))}
       </div>
 
-      {/* Step 1: Basic Information */}
+      {/* Step Titles */}
+      <div className="flex justify-center mb-8">
+        <div className="flex space-x-16">
+          {[1, 2, 3, 4].map((stepNum) => (
+            <div key={stepNum} className="text-center">
+              <p className={`text-sm ${step >= stepNum ? 'text-purple-400' : 'text-gray-500'}`}>
+                {getStepTitle(stepNum)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Step 1: Self Verification */}
       {step === 1 && (
+        <SelfVerification
+          userAddress={userAddress || '0x0000000000000000000000000000000000000000'}
+          onVerificationComplete={handleSelfVerificationComplete}
+          onBack={handleSelfVerificationBack}
+        />
+      )}
+
+      {/* Step 2: Basic Information */}
+      {step === 2 && (
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -242,8 +315,8 @@ export default function WillRegistration() {
         </motion.div>
       )}
 
-      {/* Step 2: Beneficiaries */}
-      {step === 2 && (
+      {/* Step 3: Beneficiaries */}
+      {step === 3 && (
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -344,8 +417,8 @@ export default function WillRegistration() {
         </motion.div>
       )}
 
-      {/* Step 3: Review and Submit */}
-      {step === 3 && (
+      {/* Step 4: Review and Submit */}
+      {step === 4 && (
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -357,6 +430,21 @@ export default function WillRegistration() {
             </div>
 
             <div className="space-y-4 mb-6">
+              {/* Self Verification Status */}
+              {selfVerificationResult && (
+                <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-400" />
+                    <h3 className="font-medium text-green-400">Identity Verified</h3>
+                  </div>
+                  <div className="text-sm text-gray-300">
+                    <p>Method: {selfVerificationResult.method === 'passport' ? '🌍 Passport NFC' : '🇮🇳 Aadhaar QR'}</p>
+                    <p>Nationality: {selfVerificationResult.nationality}</p>
+                    <p>Age Verified: {selfVerificationResult.ageVerified ? 'Yes (18+)' : 'No'}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="p-4 bg-white/5 rounded-lg">
                 <h3 className="font-medium text-white mb-2">Will Summary</h3>
                 <p className="text-gray-300">{willData.description || 'No description provided'}</p>
