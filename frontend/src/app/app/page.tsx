@@ -3,7 +3,7 @@
 import Badge from '@/components/ui/Badge';
 import GlassCard from '@/components/ui/GlassCard';
 import { useWallet } from '@/lib/WalletContext';
-import { motion } from 'framer-motion';
+import { motion, useAnimation } from 'framer-motion';
 import {
     AlertTriangle,
     ArrowRight,
@@ -23,30 +23,71 @@ import {
     Zap
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRef } from 'react';
+
+// Techno-ZK themed UI revamp. Logic untouched — only presentation, layout and motion.
+
+function TiltCard({ children, className = "", hoverStrength = 12 }) {
+    const ref = useRef(null);
+    const controls = useAnimation();
+
+    function handleMove(e) {
+        const el = ref.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const px = (x / rect.width) * 2 - 1; // -1 .. 1
+        const py = (y / rect.height) * 2 - 1;
+        const rotateX = (-py * hoverStrength).toFixed(2);
+        const rotateY = (px * hoverStrength).toFixed(2);
+        const translateZ = Math.max(6, hoverStrength / 2);
+        controls.start({ rotateX, rotateY, translateZ, transition: { type: 'spring', stiffness: 200, damping: 20 } });
+    }
+
+    function handleLeave() {
+        controls.start({ rotateX: 0, rotateY: 0, translateZ: 0, transition: { duration: 0.6, ease: 'easeOut' } });
+    }
+
+    return (
+        <motion.div
+            ref={ref}
+            onMouseMove={handleMove}
+            onMouseLeave={handleLeave}
+            animate={controls}
+            style={{ transformStyle: 'preserve-3d' }}
+            className={"relative perspective-1000 " + className}
+        >
+            {children}
+        </motion.div>
+    );
+}
 
 export default function AppHome() {
     const { isConnected, account, balance } = useWallet();
+
 
     const features = [
         {
             icon: <Lock className="w-6 h-6" />,
             title: "Privacy-First",
             description: "Zero-knowledge proofs ensure your will details remain confidential",
-            color: "from-purple-500/20 to-blue-500/20"
+            color: "from-purple-500/10 to-blue-500/10"
         },
         {
             icon: <Shield className="w-6 h-6" />,
             title: "Trustless Execution",
             description: "Automated execution without relying on third parties",
-            color: "from-green-500/20 to-emerald-500/20"
+            color: "from-green-500/10 to-emerald-500/10"
         },
         {
             icon: <Users className="w-6 h-6" />,
             title: "Beneficiary Protection",
             description: "Secure asset distribution with cryptographic guarantees",
-            color: "from-orange-500/20 to-red-500/20"
+            color: "from-orange-500/10 to-red-500/10"
         }
     ];
+
 
     const quickActions = [
         {
@@ -87,6 +128,7 @@ export default function AppHome() {
         }
     ];
 
+
     const stats = [
         {
             label: "Total Wills",
@@ -114,233 +156,237 @@ export default function AppHome() {
         }
     ];
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-            {/* Hero Section */}
-            <div className="relative overflow-hidden">
-                {/* Background Pattern */}
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%239C92AC%22%20fill-opacity%3D%220.05%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%222%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20"></div>
 
-                <div className="container mx-auto px-4 py-16 relative z-10">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-[#040214] via-[#07021a] to-[#03010a] text-white antialiased font-sans">
+            {/* Subtle animated starfield */}
+            <motion.div
+                className="absolute inset-0 pointer-events-none overflow-hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 1.2 }}
+            >
+                <div className="absolute -top-20 left-1/4 w-[600px] h-[600px] blur-3xl opacity-20 bg-gradient-to-br from-[#3b82f6] to-[#7c3aed] rounded-full mix-blend-screen animate-blob"></div>
+                <div className="absolute top-10 right-1/4 w-[400px] h-[400px] blur-2xl opacity-10 bg-gradient-to-br from-[#06b6d4] to-[#8b5cf6] rounded-full mix-blend-screen animate-blob animation-delay-2000"></div>
+            </motion.div>
+
+            <div className="relative z-10 container mx-auto px-6 py-16">
+                {/* Centered Hero */}
+                <div className="max-w-5xl mx-auto text-center">
+                    <motion.h1
+                        initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6 }}
-                        className="text-center mb-16"
+                        className="text-5xl md:text-6xl font-extralight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-[#a78bfa] to-[#60a5fa]"
+                        style={{ WebkitTextStroke: '0.2px rgba(255,255,255,0.02)' }}
                     >
-                        <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 rounded-full px-4 py-2 mb-6">
-                            <Sparkles className="w-4 h-4 text-purple-400" />
-                            <span className="text-sm font-medium text-purple-300">zk-afterlife-agent Dashboard</span>
-                        </div>
+                        Digital Inheritance — Private. Trustless. Future-ready.
+                    </motion.h1>
 
-                        <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-white via-purple-100 to-blue-100 bg-clip-text text-transparent mb-6">
-                            Digital Inheritance
-                        </h1>
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="mt-4 text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed"
+                    >
+                        Manage your privacy-preserving digital will with zero-knowledge proofs. Built on Aztec Network with Noir circuits and Pyth integrations for verifiable oracles.
+                    </motion.p>
 
-                        <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                            Manage your privacy-preserving digital will with zero-knowledge proofs.
-                            Built on Aztec Network with Noir circuits for ultimate security and privacy.
-                        </p>
-
-                        {/* Wallet Status */}
-                        {isConnected && (
+                    {/* Wallet Pill */}
+                    <div className="mt-8 flex items-center justify-center gap-4">
+                        <TiltCard className="w-fit">
                             <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: 0.3 }}
-                                className="mt-8 inline-flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-full px-6 py-3"
+                                className="px-6 py-3 rounded-full bg-black/40 border border-white/5 backdrop-blur-md shadow-lg flex items-center gap-4"
+                                whileHover={{ scale: 1.02 }}
+                                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
                             >
-                                <CheckCircle className="w-5 h-5 text-green-400" />
-                                <span className="text-green-300 font-medium">Wallet Connected</span>
-                                <span className="text-green-400 font-mono text-sm">{account?.slice(0, 6)}...{account?.slice(-4)}</span>
-                                <span className="text-green-300">{balance} ETH</span>
+                                <div className="w-3 h-3 rounded-full bg-green-400 shadow-[0_0_12px_rgba(34,197,94,0.12)]" />
+                                <div>
+                                    <div className="text-sm text-gray-200">{isConnected ? 'Wallet Connected' : 'Connect Wallet'}</div>
+                                    {isConnected && <div className="text-xs font-mono text-green-300">{account?.slice(0, 6)}...{account?.slice(-4)} • {balance} ETH</div>}
+                                </div>
                             </motion.div>
-                        )}
-                    </motion.div>
+                        </TiltCard>
+                    </div>
                 </div>
-            </div>
 
-            {/* Stats Section */}
-            <div className="container mx-auto px-4 mb-16">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="grid grid-cols-2 md:grid-cols-4 gap-4"
-                >
-                    {stats.map((stat, index) => (
-                        <GlassCard key={index} className="p-6 text-center">
-                            <div className={`w-12 h-12 mx-auto mb-3 rounded-full bg-gray-800 flex items-center justify-center ${stat.color}`}>
-                                {stat.icon}
-                            </div>
-                            <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
-                            <div className="text-sm text-gray-400">{stat.label}</div>
-                        </GlassCard>
-                    ))}
-                </motion.div>
-            </div>
+                {/* Slight restructure: Stats then Quick Actions split */}
+                <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                    {/* Stats Column */}
+                    <div className="lg:col-span-1">
+                        <div className="space-y-4">
+                            <motion.div
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="mb-4"
+                            >
+                                <h3 className="text-lg font-semibold text-gray-200">Overview</h3>
+                                <p className="text-sm text-gray-400">Snapshot of your registry and activity.</p>
+                            </motion.div>
 
-            {/* Quick Actions */}
-            <div className="container mx-auto px-4 mb-16">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="text-center mb-12"
-                >
-                    <h2 className="text-3xl font-bold text-white mb-4">Quick Actions</h2>
-                    <p className="text-gray-400 max-w-2xl mx-auto">
-                        Access all the core functionality of your zk-afterlife-agent dashboard
-                    </p>
-                </motion.div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {quickActions.map((action, index) => (
-                        <motion.div
-                            key={index}
-                            initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.5 + index * 0.1 }}
-                        >
-                            <Link href={action.href}>
-                                <GlassCard className="p-8 h-full group hover:scale-[1.02] transition-all duration-300 cursor-pointer">
-                                    <div className="flex items-start justify-between mb-6">
-                                        <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${action.gradient} flex items-center justify-center text-white group-hover:bg-gradient-to-br ${action.hoverGradient} transition-all duration-300`}>
-                                            {action.icon}
-                                        </div>
-                                        <ArrowRight className="w-6 h-6 text-gray-500 group-hover:text-white group-hover:translate-x-1 transition-all duration-300" />
-                                    </div>
-
-                                    <h3 className="text-2xl font-bold text-white mb-3">{action.title}</h3>
-                                    <p className="text-gray-400 mb-6 leading-relaxed">{action.description}</p>
-
-                                    <div className="space-y-2">
-                                        {action.features.map((feature, featureIndex) => (
-                                            <div key={featureIndex} className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                                                <span className="text-sm text-gray-300">{feature}</span>
+                            <div className="grid grid-cols-2 gap-3">
+                                {stats.map((stat, i) => (
+                                    <TiltCard key={i} className="">
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 6 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: 0.12 + i * 0.06 }}
+                                            className="p-4 rounded-xl border border-white/6 backdrop-blur-md bg-black/30 hover:bg-black/25"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-11 h-11 rounded-lg bg-gradient-to-br from-white/3 to-white/2 flex items-center justify-center shadow-inner`}>
+                                                        {stat.icon}
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xl font-medium">{stat.value}</div>
+                                                        <div className="text-xs text-gray-400">{stat.label}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-gray-400">{/* small spark or trend */}<TrendingUp className="w-4 h-4 text-gray-400" /></div>
                                             </div>
-                                        ))}
-                                    </div>
-
-                                    <div className="mt-6 pt-6 border-t border-gray-700">
-                                        <div className="flex items-center gap-2 text-purple-400 font-medium">
-                                            <span>Get Started</span>
-                                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-                                        </div>
-                                    </div>
-                                </GlassCard>
-                            </Link>
-                        </motion.div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Features Section */}
-            <div className="container mx-auto px-4 mb-16">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                    className="text-center mb-12"
-                >
-                    <h2 className="text-3xl font-bold text-white mb-4">Why Choose zk-afterlife-agent?</h2>
-                    <p className="text-gray-400 max-w-2xl mx-auto">
-                        Built with cutting-edge technology for the most secure and private digital inheritance solution
-                    </p>
-                </motion.div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {features.map((feature, index) => (
-                        <motion.div
-                            key={index}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.7 + index * 0.1 }}
-                        >
-                            <GlassCard className={`p-8 h-full bg-gradient-to-br ${feature.color} border-0`}>
-                                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-white mb-4">
-                                    {feature.icon}
-                                </div>
-                                <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                                <p className="text-gray-200 leading-relaxed">{feature.description}</p>
-                            </GlassCard>
-                        </motion.div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Technology Stack */}
-            <div className="container mx-auto px-4 mb-16">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
-                    className="text-center mb-12"
-                >
-                    <h2 className="text-3xl font-bold text-white mb-4">Powered By</h2>
-                    <p className="text-gray-400">Cutting-edge blockchain and cryptography technologies</p>
-                </motion.div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    {[
-                        { name: "Aztec Network", icon: <Globe className="w-8 h-8" />, color: "from-blue-500 to-cyan-500" },
-                        { name: "Noir Circuits", icon: <Key className="w-8 h-8" />, color: "from-purple-500 to-pink-500" },
-                        { name: "Ethereum L1", icon: <Shield className="w-8 h-8" />, color: "from-green-500 to-emerald-500" },
-                        { name: "ZK-SNARKs", icon: <Lock className="w-8 h-8" />, color: "from-orange-500 to-red-500" }
-                    ].map((tech, index) => (
-                        <motion.div
-                            key={index}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.9 + index * 0.1 }}
-                        >
-                            <GlassCard className="p-6 text-center group hover:scale-105 transition-all duration-300">
-                                <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br ${tech.color} flex items-center justify-center text-white`}>
-                                    {tech.icon}
-                                </div>
-                                <h3 className="text-lg font-semibold text-white">{tech.name}</h3>
-                            </GlassCard>
-                        </motion.div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Call to Action */}
-            <div className="container mx-auto px-4 mb-16">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.0 }}
-                    className="text-center"
-                >
-                    <GlassCard className="p-12 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20">
-                        <div className="max-w-3xl mx-auto">
-                            <h2 className="text-3xl font-bold text-white mb-4">
-                                Ready to Secure Your Digital Legacy?
-                            </h2>
-                            <p className="text-gray-300 mb-8 text-lg leading-relaxed">
-                                Join the future of privacy-preserving digital inheritance.
-                                Your assets, your privacy, your control.
-                            </p>
-                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                <Link href="/register">
-                                    <button className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
-                                        Get Started Now
-                                    </button>
-                                </Link>
-                                <Link href="/">
-                                    <button className="px-8 py-4 border border-purple-500/30 text-purple-300 hover:bg-purple-500/10 font-semibold rounded-xl transition-all duration-300">
-                                        Learn More
-                                    </button>
-                                </Link>
+                                        </motion.div>
+                                    </TiltCard>
+                                ))}
                             </div>
                         </div>
-                    </GlassCard>
-                </motion.div>
+                    </div>
+
+                    {/* Quick Actions + Features Column */}
+                    <div className="lg:col-span-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {quickActions.map((action, idx) => (
+                                <TiltCard key={idx} className="">
+                                    <motion.div
+                                        whileHover={{ scale: 1.02 }}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.2 + idx * 0.06 }}
+                                        className={`p-6 rounded-2xl border border-white/6 backdrop-blur-lg bg-gradient-to-br from-black/40 to-black/30 hover:shadow-[0_8px_40px_rgba(50,50,80,0.45)]`}
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center bg-gradient-to-br ${action.gradient} text-black/10 shadow-md`}>
+                                                {action.icon}
+                                            </div>
+                                            <ArrowRight className="w-6 h-6 text-gray-400" />
+                                        </div>
+
+                                        <h3 className="mt-4 text-2xl font-semibold text-white">{action.title}</h3>
+                                        <p className="text-sm text-gray-300 mt-2">{action.description}</p>
+
+                                        <div className="mt-4 grid grid-cols-1 gap-2">
+                                            {action.features.map((f, fi) => (
+                                                <motion.div key={fi} whileHover={{ x: 6 }} className="flex items-center gap-3 text-sm text-gray-300">
+                                                    <div className="w-2 h-2 rounded-full bg-gradient-to-br from-[#7c3aed] to-[#06b6d4] shadow-[0_4px_20px_rgba(124,58,237,0.12)]" />
+                                                    <span>{f}</span>
+                                                </motion.div>
+                                            ))}
+                                        </div>
+
+                                        <div className="mt-6 pt-4 border-t border-white/4 flex items-center justify-between">
+                                            <div className="text-sm text-purple-300 font-medium flex items-center gap-2">Get Started <ArrowRight className="w-4 h-4" /></div>
+                                            <Link href={action.href}>
+                                                <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-white/6 to-white/4 border border-white/5 text-sm text-white backdrop-blur-sm hover:scale-105 transition-transform">Open</button>
+                                            </Link>
+                                        </div>
+                                    </motion.div>
+                                </TiltCard>
+                            ))}
+                        </div>
+
+                        {/* Features larger section */}
+                        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {features.map((f, i) => (
+                                <TiltCard key={i} className="">
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 + i * 0.08 }}
+                                        className="p-6 rounded-2xl border border-white/6 backdrop-blur-lg bg-black/30"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-white/4 to-white/5 flex items-center justify-center shadow-[inset_0_4px_20px_rgba(0,0,0,0.6)]">
+                                                {f.icon}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-lg font-semibold">{f.title}</h4>
+                                                <p className="text-sm text-gray-300 mt-1">{f.description}</p>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                </TiltCard>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Technology Stack */}
+                <div className="mt-12">
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="text-center mb-6">
+                        <h3 className="text-2xl font-semibold">Powered By</h3>
+                        <p className="text-sm text-gray-400">Cutting-edge blockchain and cryptography technologies</p>
+                    </motion.div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {[
+                            { name: "Aztec Network", icon: <Globe className="w-8 h-8" /> },
+                            { name: "Noir Circuits", icon: <Key className="w-8 h-8" /> },
+                            { name: "Ethereum L1", icon: <Shield className="w-8 h-8" /> },
+                            { name: "ZK-SNARKs", icon: <Lock className="w-8 h-8" /> }
+                        ].map((tech, i) => (
+                            <TiltCard key={i} className="">
+                                <motion.div whileHover={{ scale: 1.03, y: -6 }} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 + i * 0.06 }} className="p-6 rounded-xl border border-white/6 backdrop-blur-md bg-black/25 flex flex-col items-center gap-3">
+                                    <div className="relative w-16 h-16 rounded-2xl flex items-center justify-center overflow-visible">
+                                        <div className="absolute -inset-2 rounded-2xl blur-xl opacity-30 bg-gradient-to-br from-[#7c3aed] to-[#06b6d4] transform-gpu animate-pulse-slow" />
+                                        <div className="relative z-10 w-12 h-12 rounded-lg bg-black/40 flex items-center justify-center">
+                                            {tech.icon}
+                                        </div>
+                                    </div>
+                                    <div className="text-sm font-medium">{tech.name}</div>
+                                </motion.div>
+                            </TiltCard>
+                        ))}
+                    </div>
+                </div>
+
+                {/* CTA */}
+                <div className="mt-12">
+                    <TiltCard className="">
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="p-10 rounded-3xl border border-white/5 backdrop-blur-lg bg-black/30 relative overflow-hidden">
+                            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0f172a]/20 to-[#0b1220]/10" />
+                            <div className="max-w-4xl mx-auto text-center">
+                                <h3 className="text-3xl font-semibold">Ready to Secure Your Digital Legacy?</h3>
+                                <p className="mt-3 text-gray-300">Join the future of privacy-preserving digital inheritance. Your assets, your privacy, your control.</p>
+
+                                <div className="mt-6 flex items-center justify-center gap-4">
+                                    <Link href="/register">
+                                        <motion.button whileHover={{ scale: 1.03, boxShadow: '0 12px 40px rgba(96,165,250,0.12)' }} className="px-8 py-4 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#06b6d4] text-black font-semibold">Get Started Now</motion.button>
+                                    </Link>
+                                    <Link href="/">
+                                        <motion.button whileHover={{ scale: 1.02 }} className="px-8 py-4 rounded-xl border border-white/6 text-sm text-white">Learn More</motion.button>
+                                    </Link>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </TiltCard>
+                </div>
             </div>
+
+            {/* Small utilities: smooth animation helpers */}
+            <style jsx>{`
+                .perspective-1000 { perspective: 1200px; }
+                .animate-blob { animation: blob 8s infinite; }
+                .animation-delay-2000 { animation-delay: 2s; }
+                @keyframes blob {
+                    0% { transform: translateY(0px) scale(1); }
+                    33% { transform: translateY(-12px) scale(1.05); }
+                    66% { transform: translateY(8px) scale(0.98); }
+                    100% { transform: translateY(0px) scale(1); }
+                }
+                .animate-pulse-slow { animation: pulse 3.5s infinite; }
+                @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 0.95; } 100% { opacity: 0.6; } }
+            `}</style>
         </div>
     );
 }
-
-
