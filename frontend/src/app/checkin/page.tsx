@@ -24,6 +24,8 @@ interface CheckInStatus {
   isInGracePeriod: boolean;
   gracePeriodStart: bigint;
   timeUntilGracePeriod: bigint;
+  hasRegisteredWills?: boolean;
+  willCommitment?: string;
 }
 
 export default function CheckIn() {
@@ -93,6 +95,7 @@ export default function CheckIn() {
 
   const getStatusColor = () => {
     if (!checkInStatus) return 'gray';
+    if (checkInStatus.hasRegisteredWills === false) return 'gray';
     if (checkInStatus.isInGracePeriod) return 'red';
     if (checkInStatus.timeUntilGracePeriod < 30 * 24 * 60 * 60) return 'yellow'; // 30 days
     return 'green';
@@ -100,6 +103,7 @@ export default function CheckIn() {
 
   const getStatusText = () => {
     if (!checkInStatus) return 'Loading...';
+    if (checkInStatus.hasRegisteredWills === false) return 'No Registered Wills';
     if (checkInStatus.isInGracePeriod) return 'Grace Period Active';
     if (checkInStatus.timeUntilGracePeriod < 30 * 24 * 60 * 60) return 'Check-in Due Soon';
     return 'Active';
@@ -212,6 +216,30 @@ export default function CheckIn() {
           </GlassCard>
         </div>
 
+        {/* No Registered Wills Message */}
+        {checkInStatus && checkInStatus.hasRegisteredWills === false && (
+          <GlassCard className="p-8 mb-8 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+            <div className="flex items-start">
+              <AlertTriangle className="text-yellow-600 dark:text-yellow-400 mt-1 mr-3" size={24} />
+              <div>
+                <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                  No Registered Wills Found
+                </h3>
+                <p className="text-yellow-700 dark:text-yellow-300 mb-4">
+                  You need to register a will before you can perform heartbeat check-ins.
+                  Heartbeat check-ins keep your will active and prevent automatic execution.
+                </p>
+                <Button
+                  onClick={() => window.location.href = '/register'}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                >
+                  Register a Will
+                </Button>
+              </div>
+            </div>
+          </GlassCard>
+        )}
+
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Check-in Action */}
@@ -264,13 +292,18 @@ export default function CheckIn() {
 
               <Button
                 onClick={handleCheckIn}
-                disabled={isProcessing || isLoading}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                disabled={isProcessing || isLoading || (checkInStatus?.hasRegisteredWills === false)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {isProcessing ? (
                   <>
                     <RefreshCw className="mr-2 animate-spin" size={20} />
                     Processing...
+                  </>
+                ) : checkInStatus && checkInStatus.hasRegisteredWills === false ? (
+                  <>
+                    <AlertTriangle className="mr-2" size={20} />
+                    No Wills to Check In
                   </>
                 ) : (
                   <>
@@ -301,61 +334,91 @@ export default function CheckIn() {
             <div className="space-y-6">
               {checkInStatus ? (
                 <>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">Last Check-in</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {formatDate(checkInStatus.lastCheckIn)}
-                        </p>
-                      </div>
-                      <Calendar className="text-gray-400" size={20} />
+                  {checkInStatus.hasRegisteredWills === false ? (
+                    <div className="text-center py-8">
+                      <AlertTriangle className="mx-auto mb-4 text-yellow-500" size={32} />
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">
+                        No registered wills found. Register a will to enable heartbeat monitoring.
+                      </p>
+                      <Button
+                        onClick={() => window.location.href = '/register'}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Register a Will
+                      </Button>
                     </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">Grace Period</p>
-                        <p className={`text-sm ${checkInStatus.isInGracePeriod
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-green-600 dark:text-green-400'
-                          }`}>
-                          {checkInStatus.isInGracePeriod ? 'Active' : 'Inactive'}
-                        </p>
-                      </div>
-                      <AlertCircle className="text-gray-400" size={20} />
-                    </div>
-
-                    {checkInStatus.isInGracePeriod && (
-                      <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                        <div>
-                          <p className="font-medium text-red-800 dark:text-red-200">Grace Period Started</p>
-                          <p className="text-sm text-red-700 dark:text-red-300">
-                            {formatDate(checkInStatus.gracePeriodStart)}
-                          </p>
+                  ) : (
+                    <>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">Last Check-in</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {checkInStatus.lastCheckIn > 0 ? formatDate(checkInStatus.lastCheckIn) : 'Never'}
+                            </p>
+                          </div>
+                          <Calendar className="text-gray-400" size={20} />
                         </div>
-                        <Timer className="text-red-400" size={20} />
-                      </div>
-                    )}
 
-                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">Next Check-in Due</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {formatTimeRemaining(checkInStatus.timeUntilGracePeriod)}
-                        </p>
-                      </div>
-                      <Clock className="text-gray-400" size={20} />
-                    </div>
-                  </div>
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">Grace Period</p>
+                            <p className={`text-sm ${checkInStatus.isInGracePeriod
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-green-600 dark:text-green-400'
+                              }`}>
+                              {checkInStatus.isInGracePeriod ? 'Active' : 'Inactive'}
+                            </p>
+                          </div>
+                          <AlertCircle className="text-gray-400" size={20} />
+                        </div>
 
-                  <Button
-                    onClick={loadCheckInStatus}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    <RefreshCw className="mr-2" size={20} />
-                    Refresh Status
-                  </Button>
+                        {checkInStatus.isInGracePeriod && (
+                          <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <div>
+                              <p className="font-medium text-red-800 dark:text-red-200">Grace Period Started</p>
+                              <p className="text-sm text-red-700 dark:text-red-300">
+                                {formatDate(checkInStatus.gracePeriodStart)}
+                              </p>
+                            </div>
+                            <Timer className="text-red-400" size={20} />
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">Next Check-in Due</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {formatTimeRemaining(checkInStatus.timeUntilGracePeriod)}
+                            </p>
+                          </div>
+                          <Clock className="text-gray-400" size={20} />
+                        </div>
+
+                        {checkInStatus.willCommitment && (
+                          <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <div>
+                              <p className="font-medium text-blue-800 dark:text-blue-200">Will Commitment</p>
+                              <p className="text-sm text-blue-700 dark:text-blue-300 font-mono">
+                                {checkInStatus.willCommitment.slice(0, 10)}...{checkInStatus.willCommitment.slice(-8)}
+                              </p>
+                            </div>
+                            <Shield className="text-blue-400" size={20} />
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        onClick={loadCheckInStatus}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        <RefreshCw className="mr-2" size={20} />
+                        Refresh Status
+                      </Button>
+                    </>
+                  )}
                 </>
               ) : (
                 <div className="text-center py-8">
