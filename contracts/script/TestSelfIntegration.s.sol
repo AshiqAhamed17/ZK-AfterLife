@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.28;
 
 import "forge-std/Script.sol";
 import "../src/SelfHumanVerifier.sol";
@@ -31,7 +31,7 @@ contract TestSelfIntegration is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Test SelfHumanVerifier contract
-        testSelfHumanVerifier();
+        testSelfHumanVerifier(deployer);
 
         // 2. Test integration with WillExecutor (if deployed)
         testWillExecutorIntegration();
@@ -41,7 +41,7 @@ contract TestSelfIntegration is Script {
         console.log("\n=== INTEGRATION TESTS COMPLETED ===");
     }
 
-    function testSelfHumanVerifier() internal view {
+    function testSelfHumanVerifier(address deployerAddress) internal view {
         console.log("\n--- Testing SelfHumanVerifier ---");
 
         SelfHumanVerifier verifier = SelfHumanVerifier(DEPLOYED_SELF_VERIFIER);
@@ -53,9 +53,9 @@ contract TestSelfIntegration is Script {
         console.log("Total Verified Users:", verifier.totalVerifiedUsers());
 
         // Test verification status for deployer (should be false initially)
-        bool isVerified = verifier.isHumanVerified(deployer);
-        bool isAgeValid = verifier.isAgeValid(deployer);
-        bool isFullyVerified = verifier.isFullyVerified(deployer);
+        bool isVerified = verifier.isHumanVerified(deployerAddress);
+        bool isAgeValid = verifier.isAgeValid(deployerAddress);
+        bool isFullyVerified = verifier.isFullyVerified(deployerAddress);
 
         console.log("Deployer Verification Status:");
         console.log("  - Human Verified:", isVerified);
@@ -64,7 +64,7 @@ contract TestSelfIntegration is Script {
 
         // Test batch check
         address[] memory testAddresses = new address[](2);
-        testAddresses[0] = deployer;
+        testAddresses[0] = deployerAddress;
         testAddresses[1] = address(0x1234567890123456789012345678901234567890);
 
         bool[] memory batchResults = verifier.batchCheckVerification(

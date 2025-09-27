@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.29;
+pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
@@ -11,7 +11,6 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 ///      when the will can be executed privately on Aztec.
 /// @custom:security-contact security@infiniteaudits.io
 contract L1Heartbeat is Ownable, Pausable {
-
     ////////////// ERRORS //////////////
 
     // Constructor validation
@@ -35,7 +34,6 @@ contract L1Heartbeat is Ownable, Pausable {
     error GraceStillActive();
     error ExecutionVetoed();
 
-
     ////////////// STORAGE //////////////
 
     /// @notice Number of seconds until the owner is considered inactive
@@ -50,7 +48,7 @@ contract L1Heartbeat is Ownable, Pausable {
     /// @notice Timestamp when grace period started (0 if not started)
     uint256 public graceStart;
 
-    /// @notice Whether inactivity has been finalized (execution signal emitted) 
+    /// @notice Whether inactivity has been finalized (execution signal emitted)
     bool public inactiveFinalized;
 
     /// @notice Mapping of addresses allowed to veto execution
@@ -68,7 +66,6 @@ contract L1Heartbeat is Ownable, Pausable {
     /// @notice Track which veto members have already vetoed
     mapping(address => bool) public hasVetoed;
 
-
     ////////////// EVENTS //////////////
 
     event CheckIn(address indexed owner, uint256 timestamp);
@@ -76,14 +73,12 @@ contract L1Heartbeat is Ownable, Pausable {
     event Veto(address indexed member, uint256 timestamp);
     event InactiveFinalized(bytes32 willCommitment, uint256 timestamp);
 
-
     ////////////// MODIFIERS //////////////
 
     modifier vetoOnly() {
         if (!isVetoMember[msg.sender]) revert NotVetoMember();
         _;
     }
-
 
     ////////////// CONSTRUCTOR //////////////
 
@@ -127,16 +122,17 @@ contract L1Heartbeat is Ownable, Pausable {
     }
 
     ////////////// EXTERNAL FUNCTIONS //////////////
-    
+
     /// @notice Owner pings the contract to prove activity
-    function checkIn() external onlyOwner whenNotPaused  {
+    function checkIn() external onlyOwner whenNotPaused {
         lastCheckIn = block.timestamp;
         emit CheckIn(msg.sender, block.timestamp);
     }
 
     /// @notice Trigger grace period if owner has been inactive long enough
-    function triggerGracePeriod() external whenNotPaused  {
-        if (block.timestamp <= lastCheckIn + inactivityPeriod) revert StillActive();
+    function triggerGracePeriod() external whenNotPaused {
+        if (block.timestamp <= lastCheckIn + inactivityPeriod)
+            revert StillActive();
         if (graceStart != 0) revert GraceAlreadyStarted();
 
         graceStart = block.timestamp;
@@ -146,7 +142,8 @@ contract L1Heartbeat is Ownable, Pausable {
     /// @notice Cast a veto during the grace period
     function veto() external vetoOnly whenNotPaused {
         if (graceStart == 0) revert GraceNotStarted();
-        if (block.timestamp > graceStart + gracePeriod) revert GracePeriodOver();
+        if (block.timestamp > graceStart + gracePeriod)
+            revert GracePeriodOver();
         if (hasVetoed[msg.sender]) revert AlreadyVetoed();
 
         hasVetoed[msg.sender] = true;
@@ -154,23 +151,23 @@ contract L1Heartbeat is Ownable, Pausable {
         emit Veto(msg.sender, block.timestamp);
     }
 
-     /**
+    /**
      * @notice Finalize inactivity and emit signal for Aztec executor
      * @param willCommitment Commitment hash of the will (off-chain/Noir generated)
      */
     function finalizeInactivity(bytes32 willCommitment) external whenNotPaused {
         if (inactiveFinalized) revert AlreadyFinalized();
         if (graceStart == 0) revert GraceNotStarted();
-        if (block.timestamp <= graceStart + gracePeriod) revert GraceStillActive();
+        if (block.timestamp <= graceStart + gracePeriod)
+            revert GraceStillActive();
         if (vetoCount >= vetoThreshold) revert ExecutionVetoed();
 
         inactiveFinalized = true;
         emit InactiveFinalized(willCommitment, block.timestamp);
     }
 
-
     ////////////// VIEW FUNCTIONS //////////////
-    
+
     /// @notice Returns all veto members (read-only convenience)
     function getVetoMembers() external view returns (address[] memory) {
         return _vetoList;

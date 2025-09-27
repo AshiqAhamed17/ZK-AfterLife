@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.28;
 
 import {SelfVerificationRoot} from "@selfxyz/contracts/contracts/abstract/SelfVerificationRoot.sol";
 import {ISelfVerificationRoot} from "@selfxyz/contracts/contracts/interfaces/ISelfVerificationRoot.sol";
@@ -212,6 +212,37 @@ contract SelfHumanVerifier is SelfVerificationRoot, Ownable {
         verificationConfigId = newConfigId;
 
         emit VerificationConfigUpdated(oldConfigId, verificationConfigId);
+    }
+
+    /**
+     * @notice Set up the verification configuration for Self Protocol
+     * @dev This function sets up the proper verification config that matches frontend
+     */
+    function setupVerificationConfig() external onlyOwner {
+        // Set up verification configuration that matches frontend
+        verificationConfig = SelfStructs.VerificationConfigV2({
+            olderThanEnabled: true,
+            olderThan: 18,
+            forbiddenCountriesEnabled: false,
+            forbiddenCountriesListPacked: [
+                uint256(0),
+                uint256(0),
+                uint256(0),
+                uint256(0)
+            ],
+            ofacEnabled: [false, false, false]
+        });
+
+        // Generate a proper config ID based on the configuration
+        verificationConfigId = keccak256(
+            abi.encodePacked(
+                "zk-afterlife-verification",
+                block.chainid,
+                verificationConfig.olderThan
+            )
+        );
+
+        emit VerificationConfigUpdated(bytes32(0), verificationConfigId);
     }
 
     /**
