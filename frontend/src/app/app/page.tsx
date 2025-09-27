@@ -189,7 +189,7 @@ export default function AppHome() {
                         transition={{ delay: 0.2 }}
                         className="mt-4 text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed"
                     >
-                        Manage your privacy-preserving digital will with zero-knowledge proofs. Built on Aztec Network with Noir circuits and Pyth integrations for verifiable oracles.
+                        Manage your privacy-preserving digital will with zero-knowledge proofs. Built on Aztec Network with Noir circuits for verifiable execution.
                     </motion.p>
 
                     {/* Wallet Pill */}

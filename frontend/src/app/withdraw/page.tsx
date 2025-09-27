@@ -280,24 +280,26 @@ export default function Withdraw() {
                         )}
                     </Button>
 
-                    {/* Manual Withdrawal Button */}
-                    <Button
-                        onClick={() => handleDirectWithdraw('0x06ecb45ac40d9b09be15cf448ee3a5b2c73ba07ee2948dbb5fcc4b44417d7b90')}
-                        disabled={isProcessing}
-                        className="px-8 bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                        {isProcessing ? (
-                            <>
-                                <RefreshCw className="mr-2 animate-spin" size={20} />
-                                Withdrawing...
-                            </>
-                        ) : (
-                            <>
-                                <Coins className="mr-2" size={20} />
-                                Manual Withdraw (Latest Will)
-                            </>
-                        )}
-                    </Button>
+                    {/* Manual Withdrawal Button - Only show if user has wills */}
+                    {registeredWills.length > 0 && (
+                        <Button
+                            onClick={() => handleDirectWithdraw(registeredWills[0].willCommitment)}
+                            disabled={isProcessing}
+                            className="px-8 bg-orange-600 hover:bg-orange-700 text-white"
+                        >
+                            {isProcessing ? (
+                                <>
+                                    <RefreshCw className="mr-2 animate-spin" size={20} />
+                                    Withdrawing...
+                                </>
+                            ) : (
+                                <>
+                                    <Coins className="mr-2" size={20} />
+                                    Withdraw from Latest Will
+                                </>
+                            )}
+                        </Button>
+                    )}
                 </div>
 
                 {/* Registered Wills List */}

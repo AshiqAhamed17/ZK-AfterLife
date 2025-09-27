@@ -29,7 +29,7 @@ interface ExecutedWill {
 }
 
 export default function Claims() {
-    const { isConnected, account, getExecutedWillsForBeneficiary, claimFromExecutedWill, checkAndExecuteWills, executeWillSimple, executeWillAlternative, isLoading, error } = useWallet();
+    const { isConnected, account, getExecutedWillsForBeneficiary, claimFromExecutedWill, checkAndExecuteWills, executeWillSimple, executeWillAlternative, getAllRegisteredWills, isLoading, error } = useWallet();
     const [executedWills, setExecutedWills] = useState<ExecutedWill[]>([]);
     const [isLoadingWills, setIsLoadingWills] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -80,8 +80,16 @@ export default function Claims() {
         setLocalError('');
 
         try {
-            // Execute your specific will
-            const willCommitment = '0x15a7f53aa83b747f82626993c29aeaa61819864086b68a3cb63a0c599b83d925';
+            // Get user's registered wills first
+            const registeredWills = await getAllRegisteredWills();
+
+            if (!registeredWills || registeredWills.length === 0) {
+                setLocalError('No registered wills found. Please register a will first.');
+                return;
+            }
+
+            // Use the first registered will for manual execution
+            const willCommitment = registeredWills[0].willCommitment;
             console.log('Manually executing will:', willCommitment);
 
             let txHash;

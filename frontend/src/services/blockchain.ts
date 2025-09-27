@@ -1138,6 +1138,56 @@ export class BlockchainService {
     try {
       console.log('Executing will using alternative method (withdrawEth):', willCommitment);
 
+      // First check if will is registered
+      const isRegistered = await this.publicClient.readContract({
+        ...this.contracts.willExecutor,
+        functionName: 'isWillRegistered',
+        args: [willCommitment as `0x${string}`]
+      });
+
+      if (!isRegistered) {
+        throw new Error('Will not found or not registered');
+      }
+
+      // Check if will is already executed
+      const isExecuted = await this.publicClient.readContract({
+        ...this.contracts.willExecutor,
+        functionName: 'isWillExecuted',
+        args: [willCommitment as `0x${string}`]
+      });
+
+      if (isExecuted) {
+        throw new Error('Cannot execute an already executed will');
+      }
+
+      // Get will details to validate ownership and assets
+      const registeredWill = await this.publicClient.readContract({
+        ...this.contracts.willExecutor,
+        functionName: 'getRegisteredWill',
+        args: [willCommitment as `0x${string}`]
+      });
+
+      if (!registeredWill.exists) {
+        throw new Error('Will not found in contract storage');
+      }
+
+      // Check if the user is the owner
+      if (registeredWill.owner.toLowerCase() !== this.account.toLowerCase()) {
+        throw new Error('Only the will owner can execute the will');
+      }
+
+      // Check if there's any ETH to withdraw
+      if (registeredWill.totalEth === 0n) {
+        throw new Error('No ETH to execute from this will');
+      }
+
+      console.log('Will execution details:', {
+        owner: registeredWill.owner,
+        totalEth: registeredWill.totalEth.toString(),
+        totalUsdc: registeredWill.totalUsdc.toString(),
+        totalNfts: registeredWill.totalNfts.toString()
+      });
+
       // For demo purposes, we'll use withdrawEth which doesn't require ZK proof
       // This effectively "executes" the will by withdrawing the ETH
       const hash = await this.walletClient.writeContract({
@@ -1173,43 +1223,64 @@ export class BlockchainService {
     try {
       console.log('Direct ETH withdrawal for will:', willCommitment);
 
+      // First check if will is registered
+      const isRegistered = await this.publicClient.readContract({
+        ...this.contracts.willExecutor,
+        functionName: 'isWillRegistered',
+        args: [willCommitment as `0x${string}`]
+      });
+
+      if (!isRegistered) {
+        throw new Error('Will not found or not registered');
+      }
+
+      // Check if will is already executed
+      const isExecuted = await this.publicClient.readContract({
+        ...this.contracts.willExecutor,
+        functionName: 'isWillExecuted',
+        args: [willCommitment as `0x${string}`]
+      });
+
+      if (isExecuted) {
+        throw new Error('Cannot withdraw from an executed will');
+      }
+
       // Get will details to show what we're withdrawing
       let willDetails;
       try {
-        willDetails = await this.getWillDetails(willCommitment as `0x${string}`);
-        if (!willDetails || !willDetails.exists) {
-          throw new Error('Will not found');
+        const registeredWill = await this.publicClient.readContract({
+          ...this.contracts.willExecutor,
+          functionName: 'getRegisteredWill',
+          args: [willCommitment as `0x${string}`]
+        });
+
+        if (!registeredWill.exists) {
+          throw new Error('Will not found in contract storage');
         }
+
+        willDetails = {
+          exists: true,
+          owner: registeredWill.owner,
+          totalEth: registeredWill.totalEth,
+          totalUsdc: registeredWill.totalUsdc,
+          totalNfts: registeredWill.totalNfts,
+          registrationTime: registeredWill.registrationTime
+        };
+
+        // Check if the user is the owner
+        if (willDetails.owner.toLowerCase() !== this.account.toLowerCase()) {
+          throw new Error('Only the will owner can withdraw ETH');
+        }
+
+        // Check if there's any ETH to withdraw
+        if (willDetails.totalEth === 0n) {
+          throw new Error('No ETH to withdraw from this will');
+        }
+
         console.log('Withdrawing ETH amount:', willDetails.totalEth.toString());
       } catch (error) {
-        console.error('Failed to get will details for withdrawal, trying alternative:', error);
-
-        // Alternative: Try to get will details using getRegisteredWill
-        try {
-          const registeredWill = await this.publicClient.readContract({
-            ...this.contracts.willExecutor,
-            functionName: 'getRegisteredWill',
-            args: [willCommitment as `0x${string}`]
-          });
-
-          if (!registeredWill.exists) {
-            throw new Error('Will not found');
-          }
-
-          willDetails = {
-            exists: true,
-            owner: registeredWill.owner,
-            totalEth: registeredWill.totalEth,
-            totalUsdc: registeredWill.totalUsdc,
-            totalNfts: registeredWill.totalNfts,
-            registrationTime: registeredWill.registrationTime
-          };
-
-          console.log('Withdrawing ETH amount (from getRegisteredWill):', willDetails.totalEth.toString());
-        } catch (altError) {
-          console.error('Alternative approach also failed:', altError);
-          throw new Error('Will not found');
-        }
+        console.error('Failed to get will details:', error);
+        throw new Error(`Failed to get will details: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
 
       const hash = await this.walletClient.writeContract({
@@ -1242,15 +1313,56 @@ export class BlockchainService {
     }
 
     try {
-      // For demo purposes, we'll use withdrawEth as a placeholder
-      // In production, this would be a proper beneficiary claim function
-      const hash = await this.walletClient.writeContract({
+      console.log('Claiming from executed will:', willCommitment);
+
+      // First check if will is registered
+      const isRegistered = await this.publicClient.readContract({
         ...this.contracts.willExecutor,
-        functionName: 'withdrawEth',
+        functionName: 'isWillRegistered',
         args: [willCommitment as `0x${string}`]
       });
 
-      return hash;
+      if (!isRegistered) {
+        throw new Error('Will not found or not registered');
+      }
+
+      // Check if will is executed
+      const isExecuted = await this.publicClient.readContract({
+        ...this.contracts.willExecutor,
+        functionName: 'isWillExecuted',
+        args: [willCommitment as `0x${string}`]
+      });
+
+      if (!isExecuted) {
+        throw new Error('Will must be executed before beneficiaries can claim');
+      }
+
+      // Get will details to check if there are any assets to claim
+      const registeredWill = await this.publicClient.readContract({
+        ...this.contracts.willExecutor,
+        functionName: 'getRegisteredWill',
+        args: [willCommitment as `0x${string}`]
+      });
+
+      if (!registeredWill.exists) {
+        throw new Error('Will not found in contract storage');
+      }
+
+      // Check if there are any assets to claim
+      if (registeredWill.totalEth === 0n && registeredWill.totalUsdc === 0n && registeredWill.totalNfts === 0) {
+        throw new Error('No assets available to claim from this will');
+      }
+
+      console.log('Will execution details:', {
+        totalEth: registeredWill.totalEth.toString(),
+        totalUsdc: registeredWill.totalUsdc.toString(),
+        totalNfts: registeredWill.totalNfts.toString()
+      });
+
+      // TODO: In a production system, this would call a proper beneficiary claim function
+      // For now, we'll throw an error since the contract doesn't have beneficiary claim functionality
+      throw new Error('Beneficiary claiming functionality not yet implemented in the contract. This feature requires additional contract development.');
+
     } catch (error) {
       console.error('Error claiming from executed will:', error);
       throw new Error(`Failed to claim from will: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1384,6 +1496,7 @@ export class BlockchainService {
     });
 
     return {
+      exists: isRegistered, // Use isRegistered as exists for compatibility
       isRegistered,
       isExecuted,
     };

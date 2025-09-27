@@ -1,6 +1,5 @@
 "use client";
 
-import DynamicAssetValuation from '@/components/DynamicAssetValuation';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import GlassCard from '@/components/ui/GlassCard';
@@ -340,17 +339,6 @@ export default function RegisterWill() {
                             <p className="text-gray-300 mb-6 text-lg">
                                 Verify your identity using Self Protocol to prevent bots and ensure you're 18+
                             </p>
-                            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-6">
-                                <p className="text-green-300 font-semibold">✅ Partner Prize Requirements Met:</p>
-                                <p className="text-green-200 text-sm">Onchain SDK Integration • Celo Testnet • Proof of Humanity • Age Verification • Country Verification</p>
-                            </div>
-
-                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
-                                <p className="text-yellow-300 font-semibold">⚠️ Demo Mode:</p>
-                                <p className="text-yellow-200 text-sm">
-                                    This is a demonstration of Self Protocol integration. For production, the contract needs proper verification configuration setup in the Self Protocol system.
-                                </p>
-                            </div>
 
                             {localError && (
                                 <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
@@ -401,7 +389,7 @@ export default function RegisterWill() {
                                     </h3>
 
                                     <div className="text-left space-y-4">
-                                        {selfProtocolService.getInstructions(selfVerificationMethod).map((instruction, index) => (
+                                        {selfVerificationMethod && selfProtocolService.getInstructions(selfVerificationMethod).map((instruction, index) => (
                                             <div key={index} className="bg-white/10 rounded-lg p-4">
                                                 <h4 className="font-semibold text-white mb-2">Step {index + 1}</h4>
                                                 <p className="text-gray-300 text-sm">{instruction}</p>
@@ -856,24 +844,6 @@ export default function RegisterWill() {
                                     </div>
                                 </div>
 
-                                {/* 🏆 PRIZE-WINNING FEATURE: Dynamic Asset Valuation with Pyth Network */}
-                                <DynamicAssetValuation
-                                    assets={['ETH', 'USDC']}
-                                    amounts={[
-                                        willData.beneficiaries.reduce((sum, ben) => sum + parseFloat(ben.ethAmount || '0'), 0).toString(),
-                                        willData.beneficiaries.reduce((sum, ben) => sum + parseFloat(ben.usdcAmount || '0'), 0).toString()
-                                    ]}
-                                    beneficiaries={willData.beneficiaries.map(b => b.address)}
-                                    percentages={willData.beneficiaries.map((_, index) => {
-                                        // Calculate percentage based on ETH amounts (simplified)
-                                        const totalEth = willData.beneficiaries.reduce((sum, ben) => sum + parseFloat(ben.ethAmount || '0'), 0);
-                                        if (totalEth === 0) return 100 / willData.beneficiaries.length;
-                                        return (parseFloat(willData.beneficiaries[index].ethAmount || '0') / totalEth) * 100;
-                                    })}
-                                    onDistributionCalculated={(distribution) => {
-                                        console.log('🏆 Dynamic distribution calculated:', distribution);
-                                    }}
-                                />
 
                                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                                     <div className="flex items-start">
