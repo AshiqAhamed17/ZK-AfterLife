@@ -6,6 +6,7 @@ export interface ContractAddresses {
   l1AztecBridge: string;
   willVerifier: string;
   willExecutor: string;
+  selfHumanVerifier: string;
 }
 
 export interface NetworkConfig {
@@ -31,6 +32,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       l1AztecBridge: '0x0000000000000000000000000000000000000000',
       willVerifier: '0x0000000000000000000000000000000000000000',
       willExecutor: '0x0000000000000000000000000000000000000000',
+      selfHumanVerifier: '0x0000000000000000000000000000000000000000',
     }
   },
   sepolia: {
@@ -52,6 +54,22 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       l1AztecBridge: '0xE4Ee7a0ed33c9e024e0bE9E061901e0C6CA95107',
       willVerifier: '0x0Ddcac19C955abBa465AC748c287fd4CFf6CB88d',
       willExecutor: '0x98545459892861c3d757d351CF2722947CC15cda',
+      selfHumanVerifier: '0x0000000000000000000000000000000000000000', // Not deployed on Sepolia
+    }
+  },
+  'celo-sepolia': {
+    chainId: 11142220,
+    name: 'Celo Sepolia',
+    rpcUrl: 'https://forno.celo-sepolia.celo-testnet.org',
+    blockExplorer: 'https://celo-sepolia.blockscout.com/',
+    contracts: {
+      noirIntegration: '0x0000000000000000000000000000000000000000',
+      l1Heartbeat: '0x0000000000000000000000000000000000000000',
+      aztecExecutor: '0x0000000000000000000000000000000000000000',
+      l1AztecBridge: '0x0000000000000000000000000000000000000000',
+      willVerifier: '0x0000000000000000000000000000000000000000',
+      willExecutor: '0x0000000000000000000000000000000000000000',
+      selfHumanVerifier: '0xAf61DbD79eAEaa2455065619063Fa5eb13fB0A4B', // Deployed Self Human Verifier
     }
   },
   mainnet: {
@@ -66,6 +84,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       l1AztecBridge: '0x76ca03a67C049477FfB09694dFeF00416dB69746',
       willVerifier: '0x0000000000000000000000000000000000000000', // Update after deployment
       willExecutor: '0x0000000000000000000000000000000000000000', // Update after deployment
+      selfHumanVerifier: '0x0000000000000000000000000000000000000000', // Update after deployment
     }
   }
 };
