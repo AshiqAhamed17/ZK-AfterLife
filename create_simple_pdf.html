@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sample Will Document</title>
+    <style>
+      body {
+        font-family: "Times New Roman", serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px;
+        line-height: 1.6;
+        color: #333;
+      }
+      h1 {
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 40px;
+        text-decoration: underline;
+      }
+      h2 {
+        font-size: 18px;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        color: #2c3e50;
+      }
+      h3 {
+        font-size: 16px;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        color: #34495e;
+      }
+      p {
+        margin-bottom: 10px;
+      }
+      .beneficiary {
+        background-color: #f8f9fa;
+        padding: 15px;
+        margin: 15px 0;
+        border-left: 4px solid #007bff;
+      }
+      .total-assets {
+        background-color: #e8f5e8;
+        padding: 15px;
+        margin: 20px 0;
+        border: 1px solid #28a745;
+      }
+      .signature {
+        margin-top: 40px;
+        border-top: 1px solid #333;
+        padding-top: 20px;
+      }
+      .highlight {
+        font-weight: bold;
+        color: #007bff;
+      }
+      @media print {
+        body {
+          margin: 0;
+          padding: 20px;
+        }
+        .no-print {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>LAST WILL AND TESTAMENT</h1>
+
+    <p>
+      I, <span class="highlight">John Doe</span>, being of sound mind and body,
+      do hereby declare this to be my Last Will and Testament.
+    </p>
+
+    <h2>Beneficiary Information</h2>
+
+    <div class="beneficiary">
+      <h3>Beneficiary 1 Alice Smith</h3>
+      <p>
+        <strong>Address:</strong> 0x1234567890123456789012345678901234567890
+      </p>
+      <p><strong>ETH Amount:</strong> 0.002</p>
+      <p><strong>USDC Amount:</strong> 10</p>
+      <p><strong>NFT Count:</strong> 0</p>
+      <p>
+        <strong>Description:</strong> My daughter who shall inherit my digital
+        assets.
+      </p>
+    </div>
+
+    <div class="beneficiary">
+      <h3>Beneficiary 2 Bob Johnson</h3>
+      <p>
+        <strong>Address:</strong> 0x2345678901234567890123456789012345678901
+      </p>
+      <p><strong>ETH Amount:</strong> 0.003</p>
+      <p><strong>USDC Amount:</strong> 5</p>
+      <p><strong>NFT Count:</strong> 0</p>
+      <p>
+        <strong>Description:</strong> My son who shall inherit the remaining
+        assets.
+      </p>
+    </div>
+
+    <div class="total-assets">
+      <h2>Total Assets Declaration</h2>
+      <p>• <strong>Total ETH:</strong> 0.005</p>
+      <p>• <strong>Total USDC:</strong> 15</p>
+      <p>• <strong>Total NFTs:</strong> 0</p>
+    </div>
+
+    <p>
+      This will shall be executed upon my passing, and all digital assets shall
+      be distributed according to the allocations specified above.
+    </p>
+
+    <div class="signature">
+      <p><strong>Signed:</strong> John Doe</p>
+      <p><strong>Date:</strong> September 28, 2024</p>
+      <p><strong>Witness:</strong> Jane Smith</p>
+    </div>
+
+    <div
+      class="no-print"
+      style="margin-top: 40px; text-align: center; color: #666"
+    >
+      <p>
+        <em
+          >Print this page (Ctrl+P) and save as PDF to create your sample will
+          document.</em
+        >
+      </p>
+      <button
+        onclick="window.print()"
+        style="
+          padding: 10px 20px;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+        "
+      >
+        🖨️ Print as PDF
+      </button>
+    </div>
+
+    <script>
+      // Auto-print after 2 seconds
+      setTimeout(() => {
+        if (confirm("Would you like to print this document as PDF?")) {
+          window.print();
+        }
+      }, 2000);
+    </script>
+  </body>
+</html>

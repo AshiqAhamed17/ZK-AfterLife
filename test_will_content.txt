@@ -1,0 +1,10 @@
+Beneficiary 1 Alice Smith
+Address: 0x1234567890123456789012345678901234567890
+ETH Amount: 1.5
+USDC Amount: 1000
+NFT Count: 2
+Beneficiary 2 Bob Johnson
+Address: 0x2345678901234567890123456789012345678901
+ETH Amount: 0.5
+USDC Amount: 500
+NFT Count: 1
