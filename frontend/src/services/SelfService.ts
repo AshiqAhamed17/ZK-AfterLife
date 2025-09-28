@@ -1,4 +1,4 @@
-import { SelfAppBuilder } from '@selfxyz/core';
+// import { SelfAppBuilder } from '@selfxyz/core'; // Temporarily disabled due to import issues
 import {
     getSelfConfig,
     SELF_CONFIG,
@@ -38,8 +38,9 @@ export class SelfService {
             userId: '[REDACTED]' // Don't log user address
         });
 
-        const selfApp = new SelfAppBuilder(config).build();
-        return selfApp;
+        // const selfApp = new SelfAppBuilder(config).build(); // Temporarily disabled
+        // return selfApp;
+        return null; // Temporary mock
     }
 
     /**

@@ -38,7 +38,7 @@ export class SelfProtocolService {
             // This should work with the existing workshop setup
             const verificationConfig = {
                 minimumAge: 18,
-                excludedCountries: ["USA"], // Match workshop config
+                excludedCountries: ["USA" as any], // Match workshop config
                 ofac: false,
                 // disclosures
                 name: true,

@@ -27,11 +27,11 @@ import { useRef } from 'react';
 
 // Techno-ZK themed UI revamp. Logic untouched — only presentation, layout and motion.
 
-function TiltCard({ children, className = "", hoverStrength = 12 }) {
-    const ref = useRef(null);
+function TiltCard({ children, className = "", hoverStrength = 12 }: { children: React.ReactNode; className?: string; hoverStrength?: number }) {
+    const ref = useRef<HTMLDivElement>(null);
     const controls = useAnimation();
 
-    function handleMove(e) {
+    function handleMove(e: React.MouseEvent) {
         const el = ref.current;
         if (!el) return;
         const rect = el.getBoundingClientRect();
