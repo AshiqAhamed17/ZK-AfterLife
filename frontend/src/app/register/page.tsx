@@ -153,7 +153,13 @@ export default function RegisterWill() {
                     ethAmount: b.ethAmount || '0',
                     usdcAmount: b.usdcAmount || '0',
                     nftCount: b.nftCount || '0'
-                }))
+                })),
+                // Add calculated totals for validation
+                calculatedTotals: {
+                    totalEth: totalEth.toString(),
+                    totalUsdc: totalUsdc.toString(),
+                    totalNfts: totalNfts.toString()
+                }
             };
 
             console.log('Will data for service:', willDataForService);

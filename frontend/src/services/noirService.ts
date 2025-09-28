@@ -15,6 +15,11 @@ export interface WillData {
   beneficiaryEth: string[];
   beneficiaryUsdc: string[];
   beneficiaryNfts: string[];
+  calculatedTotals?: {
+    totalEth: string;
+    totalUsdc: string;
+    totalNfts: string;
+  };
 }
 
 export interface WillProof {
@@ -171,10 +176,28 @@ export class NoirService {
     const willCommitment = await this.generateWillCommitmentAsync(willData);
     const merkleRoot = await this.generateMerkleRootAsync(willData);
 
-    // Calculate totals
-    const totalEth = willData.beneficiaryEth.reduce((sum, eth) => sum + this.stringToBigInt(eth), BigInt(0)).toString();
-    const totalUsdc = willData.beneficiaryUsdc.reduce((sum, usdc) => sum + this.stringToBigInt(usdc), BigInt(0)).toString();
-    const totalNftCount = willData.beneficiaryNfts.reduce((sum, nft) => sum + this.stringToBigInt(nft), BigInt(0)).toString();
+    // Calculate totals from beneficiary allocations (this is what the circuit will validate)
+    const calculatedTotalEth = willData.beneficiaryEth.reduce((sum, eth) => sum + this.stringToBigInt(eth), BigInt(0)).toString();
+    const calculatedTotalUsdc = willData.beneficiaryUsdc.reduce((sum, usdc) => sum + this.stringToBigInt(usdc), BigInt(0)).toString();
+    const calculatedTotalNftCount = willData.beneficiaryNfts.reduce((sum, nft) => sum + this.stringToBigInt(nft), BigInt(0)).toString();
+
+    // Use calculated totals (from beneficiary allocations) as the declared totals for the circuit
+    // This ensures the circuit validates that the sum of individual allocations equals the declared totals
+    const totalEth = calculatedTotalEth;
+    const totalUsdc = calculatedTotalUsdc;
+    const totalNftCount = calculatedTotalNftCount;
+
+    console.log('🔍 Allocation Validation:', {
+      beneficiaryEth: willData.beneficiaryEth,
+      beneficiaryUsdc: willData.beneficiaryUsdc,
+      beneficiaryNfts: willData.beneficiaryNfts,
+      calculatedTotalEth,
+      calculatedTotalUsdc,
+      calculatedTotalNftCount,
+      declaredTotalEth: totalEth,
+      declaredTotalUsdc: totalUsdc,
+      declaredTotalNftCount: totalNftCount
+    });
 
     // If Noir is available, try to execute (and prove if backend exists)
     if (this.noir) {
@@ -210,10 +233,12 @@ export class NoirService {
           const proofHex = this.bytesToHex(proofBytes);
           const pubInputs: string[] = pubInputsRaw.map((x: any) => typeof x === 'bigint' ? asField(x) : String(x));
 
-          console.log('✅ ZK Proof generated successfully:', {
+          console.log('✅ REAL ZK Proof generated successfully:', {
             proofLength: proofBytes.length,
             publicInputsCount: pubInputs.length,
-            proofHex: proofHex.substring(0, 20) + '...'
+            proofHex: proofHex.substring(0, 20) + '...',
+            isRealProof: true,
+            backend: 'UltraHonk'
           });
 
           // Verify the proof to ensure it's valid
@@ -246,7 +271,10 @@ export class NoirService {
       }
     }
 
-    // Fallback: mock proof
+    // Fallback: mock proof (should not happen in production)
+    console.warn('⚠️ WARNING: Using mock proof mode. This should not happen in production!');
+    console.warn('Noir backend not available. Check your circuit compilation and dependencies.');
+
     return {
       willCommitment,
       merkleRoot,

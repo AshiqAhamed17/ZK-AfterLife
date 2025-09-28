@@ -25,7 +25,8 @@ fn main(
     beneficiary_nfts: [Field; 8],
 ) {
     // Validate beneficiary_count bounds (max 8)
-    assert(beneficiary_count as u32 <= MAX_BENEFICIARIES as u32);
+    assert(beneficiary_count as u32 <= MAX_BENEFICIARIES as u32, "Too many beneficiaries");
+    assert((beneficiary_count as u32) > 0, "At least one beneficiary required");
 
     // 1) Commitment check using Poseidon
     // commitment = Poseidon(will_data[0], will_data[1], will_data[2], will_data[3], will_salt)
@@ -36,11 +37,11 @@ fn main(
         will_data[3],
         will_salt,
     ]);
-    
+
     // Debug: print the computed commitment
     std::println(f"Computed will commitment: {computed_will_commit}");
     std::println(f"Expected will commitment: {will_commitment}");
-    
+
     assert(computed_will_commit == will_commitment);
 
     // 2) Process beneficiaries and build sophisticated hash tree
@@ -60,7 +61,10 @@ fn main(
             let nft = beneficiary_nfts[i];
 
             // Validate active beneficiary
-            assert(addr != 0);
+            assert(addr != 0, "Invalid beneficiary address");
+
+            // Validate non-negative allocations (Fields are always non-negative in Noir)
+            // Note: In Noir, Field elements are always non-negative, so we skip this validation
 
             // Accumulate allocations
             sum_eth = sum_eth + eth;
@@ -77,9 +81,14 @@ fn main(
     }
 
     // 3) Verify allocation sums match declared totals
-    assert(sum_eth == total_eth);
-    assert(sum_usdc == total_usdc);
-    assert(sum_nfts == total_nft_count);
+    // This is the core validation: the sum of individual beneficiary allocations must equal the declared totals
+    std::println(f"Sum ETH: {sum_eth}, Declared ETH: {total_eth}");
+    std::println(f"Sum USDC: {sum_usdc}, Declared USDC: {total_usdc}");
+    std::println(f"Sum NFTs: {sum_nfts}, Declared NFTs: {total_nft_count}");
+
+    assert(sum_eth == total_eth, "ETH allocation sum does not match declared total");
+    assert(sum_usdc == total_usdc, "USDC allocation sum does not match declared total");
+    assert(sum_nfts == total_nft_count, "NFT allocation sum does not match declared total");
 
     // 4) At least one non-zero allocation overall
     let total_alloc = sum_eth + sum_usdc + sum_nfts;
@@ -104,11 +113,11 @@ fn main(
 
     // Final root: Poseidon(layer2[0], layer2[1])
     let computed_root = poseidon::poseidon::bn254::hash_2([layer2[0], layer2[1]]);
-    
+
     // Debug: print the computed root
     std::println(f"Computed merkle root: {computed_root}");
     std::println(f"Expected merkle root: {merkle_root}");
-    
+
     assert(computed_root == merkle_root);
 }
 
@@ -116,19 +125,19 @@ fn main(
 fn get_correct_values() -> (Field, Field) {
     let will_data: [Field; 4] = [1, 2, 3, 4];
     let will_salt: Field = 5;
-    
+
     // Calculate will commitment
     let will_commitment = poseidon::poseidon::bn254::hash_5([
         will_data[0],
-        will_data[1], 
+        will_data[1],
         will_data[2],
         will_data[3],
-        will_salt
+        will_salt,
     ]);
 
     // Calculate merkle root
     let leaf1 = poseidon::poseidon::bn254::hash_4([1000, 4, 400, 1]);
-    let leaf2 = poseidon::poseidon::bn254::hash_4([2000, 3, 300, 1]);  
+    let leaf2 = poseidon::poseidon::bn254::hash_4([2000, 3, 300, 1]);
     let leaf3 = poseidon::poseidon::bn254::hash_4([3000, 3, 300, 0]);
     let leaf4 = 0;
 
@@ -141,10 +150,9 @@ fn get_correct_values() -> (Field, Field) {
     let layer2_1 = poseidon::poseidon::bn254::hash_2([layer1_2, layer1_3]);
 
     let merkle_root = poseidon::poseidon::bn254::hash_2([layer2_0, layer2_1]);
-    
+
     (will_commitment, merkle_root)
 }
-
 
 #[test]
 fn test_get_values() {
@@ -156,7 +164,7 @@ fn test_get_values() {
 #[test]
 fn test_valid_will() {
     let (will_commitment, merkle_root) = get_correct_values();
-    
+
     main(
         will_commitment,
         merkle_root,
@@ -172,4 +180,3 @@ fn test_valid_will() {
         [1, 1, 0, 0, 0, 0, 0, 0], // beneficiary_nfts
     );
 }
-

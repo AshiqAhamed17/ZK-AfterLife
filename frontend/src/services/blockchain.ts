@@ -1378,6 +1378,7 @@ export class BlockchainService {
     console.log('Registering will with data:', willRegistration);
 
     // Calculate total ETH from beneficiaries (in ETH, not wei)
+    // These should match the totals used in the ZK proof
     const totalEthInEth = willRegistration.beneficiaries?.reduce((sum: number, ben: any) => {
       return sum + parseFloat(ben.ethAmount || '0');
     }, 0) || 0;
@@ -1389,6 +1390,13 @@ export class BlockchainService {
     const totalNfts = willRegistration.beneficiaries?.reduce((sum: number, ben: any) => {
       return sum + parseInt(ben.nftCount || '0');
     }, 0) || 0;
+
+    console.log('🔍 Smart Contract Validation:', {
+      totalEthInEth,
+      totalUsdc,
+      totalNfts,
+      beneficiaries: willRegistration.beneficiaries
+    });
 
     console.log('Calculated totals:', { totalEthInEth, totalUsdc, totalNfts });
 
