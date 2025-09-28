@@ -5,6 +5,10 @@ contracts/cache/
 # Noir build artifacts
 noir/will/target/
 
+# Rust build artifacts
+backend/target/
+target/
+
 # Node modules
 node_modules/
 

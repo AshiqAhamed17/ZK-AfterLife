@@ -1,2 +1,0 @@
-fn(State<PDFService>, axum::Json<types::PDFProofRequest>) -> impl Future<Output = Result<axum::Json<types::PDFProofResponse>, axum::http::StatusCode>> {generate_pdf_proof_handler}
-fn(State<PDFService>, axum::Json<types::PDFProofRequest>) -> impl Future<Output = Result<axum::Json<types::PDFProofResponse>, axum::http::StatusCode>> {generate_pdf_proof_handler}: Handler<_, _>

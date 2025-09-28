@@ -1,2 +1,0 @@
-fn(State<PDFService>, {type error}) -> impl Future<Output = Result<Json<types::PDFVerificationResponse>, axum::http::StatusCode>> {verify_pdf_handler}
-fn(State<PDFService>, {type error}) -> impl Future<Output = Result<Json<types::PDFVerificationResponse>, axum::http::StatusCode>> {verify_pdf_handler}: Handler<_, _>
