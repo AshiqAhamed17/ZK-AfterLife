@@ -1,5 +1,4 @@
 import ClientThemeProvider from "@/components/ClientThemeProvider";
-import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import { WalletProvider } from "@/lib/WalletContext";
 import type { Metadata } from "next";
@@ -27,8 +26,7 @@ export default function RootLayout({
         <ClientThemeProvider>
           <WalletProvider>
             <Header />
-            <div className="min-h-[calc(100vh-56px-80px)]">{children}</div>
-            <Footer />
+            <div className="min-h-[calc(100vh-56px)]">{children}</div>
           </WalletProvider>
         </ClientThemeProvider>
       </body>
