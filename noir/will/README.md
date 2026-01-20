@@ -1,78 +1,154 @@
-# ZK-Afterlife Will Circuit - Ready for Production
+# Will Verification Noir Circuit
 
-## ✅ Circuit Status: WORKING
+This directory contains the core **Noir zero-knowledge circuit** used in the ZK-AfterLife project to privately verify the correctness of a digital will without revealing beneficiary identities, asset allocations, or will contents.
 
-Your ZK circuit is working perfectly! Here's what you have:
+The circuit enforces that:
+- A committed will payload is authentic.
+- Beneficiary allocations are internally consistent.
+- Declared totals match the sum of individual allocations.
+- A Merkle root correctly represents the beneficiary set.
 
-### Current Working Files:
+The circuit is designed for clarity and correctness rather than maximal generality.
 
-- `src/main.nr` - Circuit source code ✅
-- `Prover.toml` - Working configuration ✅
-- `target/will.gz` - Generated witness (166K) ✅
-- `target/will.json` - Circuit artifacts ✅
+---
 
-## 🚀 How to Use with Contracts & Frontend
+## Purpose
 
-### 1. For Smart Contracts Integration
+The goal of this circuit is to prove, in zero knowledge, that a digital will satisfies a set of execution constraints **without revealing any private data**.
 
-The circuit generates a witness file (`target/will.gz`) that contains the proof data. Your smart contracts need to:
+Specifically, the prover demonstrates that:
+- The will data matches a previously committed hash.
+- Beneficiary allocations are well-formed and valid.
+- Asset totals are conserved.
+- The beneficiary set is correctly encoded in a Poseidon-based Merkle tree.
 
-```solidity
-// Example contract integration
-contract WillVerifier {
-    function verifyWill(
-        bytes calldata proof,
-        uint256[5] calldata publicInputs
-    ) external view returns (bool) {
-        // publicInputs = [will_commitment, merkle_root, total_eth, total_usdc, total_nft_count]
-        return verifyProof(proof, publicInputs);
-    }
-}
-```
+This circuit does **not** attempt to prove death or identity.  
+It strictly enforces internal correctness of a committed will state.
 
-### 2. For Frontend Integration
+---
 
-Your frontend can:
+## Public Inputs
 
-1. **Collect will data** from users
-2. **Generate Prover.toml** with the data
-3. **Call the circuit** to generate witness
-4. **Submit to contracts** for verification
+The following values are exposed to the verifier and are safe to be public:
 
-### 3. Quick Test
+| Input | Description |
+|------|------------|
+| `will_commitment` | Poseidon hash of the will payload and salt |
+| `merkle_root` | Root hash of the beneficiary Merkle tree |
+| `total_eth` | Declared total ETH allocation |
+| `total_usdc` | Declared total USDC allocation |
+| `total_nft_count` | Declared total NFT allocation |
 
-```bash
-cd /Users/ashiq/Documents/Hooman-Digital/ZK-AfterLife/noir/will
-nargo execute  # Generates witness
-ls -la target/will.gz  # Check witness file
-```
+These values allow on-chain contracts to verify correctness without learning private details.
 
-## 📋 Next Steps
+---
 
-1. **Copy witness file** to your contracts project
-2. **Integrate verification** in your smart contracts
-3. **Build frontend** to collect will data
-4. **Test end-to-end** workflow
+## Private Inputs
 
-## 🔧 Circuit Data Structure
+The following values remain private to the prover:
 
-The circuit expects this data format in `Prover.toml`:
+| Input | Description |
+|------|------------|
+| `will_salt` | Random salt used in the will commitment |
+| `will_data` | Encoded will payload |
+| `beneficiary_count` | Number of active beneficiaries (max 8) |
+| `beneficiary_addresses` | Beneficiary identifiers |
+| `beneficiary_eth` | ETH allocations per beneficiary |
+| `beneficiary_usdc` | USDC allocations per beneficiary |
+| `beneficiary_nfts` | NFT allocations per beneficiary |
 
-```toml
-will_commitment = "0x..."  # Poseidon hash of will data + salt
-merkle_root = "0x..."     # Poseidon hash tree of beneficiaries
-total_eth = "10"          # Total ETH allocation
-total_usdc = "1000"       # Total USDC allocation
-total_nft_count = "2"     # Total NFT count
-will_salt = "5"           # Random salt
-will_data = ["1", "2", "3", "4"]  # Will payload
-beneficiary_count = "3"   # Number of beneficiaries
-beneficiary_addresses = ["1000", "2000", "3000", "0", "0", "0", "0", "0"]
-beneficiary_eth = ["4", "3", "3", "0", "0", "0", "0", "0"]
-beneficiary_usdc = ["400", "300", "300", "0", "0", "0", "0", "0"]
-beneficiary_nfts = ["1", "1", "0", "0", "0", "0", "0", "0"]
-```
+None of this information is revealed during verification.
 
-## ✅ Ready to Use!
+---
 
-Your circuit is production-ready. The witness file (`target/will.gz`) contains everything needed for contract verification.
+## Circuit Constraints
+
+### 1. Will Commitment Verification
+
+The circuit recomputes the will commitment using Poseidon hashing and enforces equality with the public commitment: commitment = Poseidon(will_data || will_salt)
+
+This ensures the prover cannot alter will contents after committing.
+
+---
+
+### 2. Beneficiary Validation
+
+- The number of beneficiaries must be within bounds (`1 ≤ count ≤ 8`).
+- Active beneficiaries must have non-zero addresses.
+- Inactive slots are explicitly zeroed to avoid ambiguity.
+
+---
+
+### 3. Allocation Conservation
+
+For each active beneficiary, allocations are accumulated and validated:
+
+- Sum of ETH allocations equals `total_eth`
+- Sum of USDC allocations equals `total_usdc`
+- Sum of NFT allocations equals `total_nft_count`
+- At least one non-zero allocation must exist
+
+This prevents asset inflation, underflow, or silent loss.
+
+---
+
+### 4. Merkle Tree Construction
+
+Each beneficiary is hashed as: leaf = Poseidon(address, eth, usdc, nft)
+
+The circuit constructs a fixed-depth Poseidon-based Merkle tree (depth = 3) and enforces that the computed root matches the public `merkle_root`.
+
+This proves the beneficiary set is consistent with the committed root while hiding all leaf data.
+
+---
+
+## Design Choices
+
+- **Poseidon hashing** is used for all commitments and Merkle nodes for ZK efficiency.
+- **Fixed-size arrays** simplify constraint reasoning and circuit layout.
+- **Explicit zero-padding** avoids ambiguous inactive slots.
+- **No conditional branching on private data** beyond bounded iteration.
+
+The circuit favors transparency and auditability over dynamic flexibility.
+
+---
+
+## Testing
+
+The circuit includes unit tests that:
+
+- Compute correct will commitments and Merkle roots.
+- Validate a known-good will configuration.
+- Assert that incorrect allocations or commitments cause failures.
+
+These tests serve as executable documentation for expected behavior.
+
+---
+
+## Limitations
+
+- Maximum of 8 beneficiaries (by design).
+- Asset types are limited to ETH, USDC, and NFTs.
+- No support for dynamic asset lists.
+- No proof of liveness, death, or identity.
+- Intended as a correctness proof, not a full execution engine.
+
+---
+
+## Role in the Overall System
+
+This circuit acts as the **cryptographic gatekeeper** for will execution.  
+Smart contracts and off-chain services rely on its proof to ensure that:
+
+- A will was not tampered with.
+- Assets are distributed exactly as declared.
+- Private details remain undisclosed.
+
+It is designed to be verifiable by on-chain contracts while keeping all sensitive data private.
+
+---
+
+## Status
+
+This circuit is experimental and intended for research and proof-of-work purposes.  
+It has not been formally audited.
