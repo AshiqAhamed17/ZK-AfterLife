@@ -38,14 +38,14 @@ export const NETWORKS: Record<string, NetworkConfig> = {
   sepolia: {
     chainId: 11155111,
     name: 'Sepolia Testnet',
-    rpcUrl: 'https://eth-sepolia.g.alchemy.com/v2/K-dyWLoE75nGD_Z3Cv2Bg0tvUY67mYUw',
+    // RPC URL comes from env (NEXT_PUBLIC_SEPOLIA_RPC_URL); public endpoints are used as fallbacks.
+    rpcUrl: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com',
     rpcUrls: [
-      'https://eth-sepolia.g.alchemy.com/v2/K-dyWLoE75nGD_Z3Cv2Bg0tvUY67mYUw',
-
-      'https://sepolia.infura.io/v3/e72ac8bced0f45b586f6eb9e42642aef',
+      process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL,
+      'https://ethereum-sepolia-rpc.publicnode.com',
       'https://rpc.sepolia.org',
       'https://sepolia.gateway.tenderly.co'
-    ],
+    ].filter(Boolean) as string[],
     blockExplorer: 'https://sepolia.etherscan.io',
     contracts: {
       noirIntegration: '0x5CBa8f717a4eAfA0d933bB6A4d79e8d846A7B7a1',
@@ -75,7 +75,7 @@ export const NETWORKS: Record<string, NetworkConfig> = {
   mainnet: {
     chainId: 1,
     name: 'Ethereum Mainnet',
-    rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/HT-LaOGKJPuPsrbQ7y5waFEpqOh6DX-n', // Update with your key
+    rpcUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || 'https://ethereum-rpc.publicnode.com',
     blockExplorer: 'https://etherscan.io',
     contracts: {
       noirIntegration: '0x5FbDB2315678afecb367f032d93F642f64180aa3', // Update after deployment

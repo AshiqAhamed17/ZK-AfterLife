@@ -1,13 +1,11 @@
 "use client";
 
-import PDFUploader from '@/components/PDFUploader';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import GlassCard from '@/components/ui/GlassCard';
 import { useWallet } from '@/lib/WalletContext';
 import { blockchainService } from '@/services/blockchain';
 import { selfProtocolService, SelfVerificationResult } from '@/services/SelfProtocolService';
-import { Beneficiary as PDFBeneficiary, zkpdfService } from '@/services/zkpdfService';
 import { motion } from 'framer-motion';
 import {
     AlertCircle,
@@ -67,8 +65,6 @@ export default function RegisterWill() {
     const [isSuccess, setIsSuccess] = useState(false);
     const [showPrivateKey, setShowPrivateKey] = useState(false);
     const [localError, setLocalError] = useState('');
-    const [registrationMethod, setRegistrationMethod] = useState<'manual' | 'pdf'>('manual');
-    const [pdfVerificationResult, setPdfVerificationResult] = useState<any>(null);
 
     const addBeneficiary = () => {
         if (willData.beneficiaries.length < 8) {
@@ -98,9 +94,6 @@ export default function RegisterWill() {
     };
 
     const validateForm = () => {
-        // For PDF-based registration, provide a default description if none exists
-        const description = willData.description.trim() || "Digital Will created from PDF document";
-
         if (willData.beneficiaries.some(b => !b.address.trim() || !b.name.trim())) {
             return 'Please fill in all beneficiary details';
         }
@@ -145,7 +138,7 @@ export default function RegisterWill() {
             const willCommitment = `0x${willData.willSalt}${Date.now().toString(16)}`;
 
             // Convert will data to the format expected by the service
-            const description = willData.description.trim() || "Digital Will created from PDF document";
+            const description = willData.description.trim() || "Digital Will";
             const willDataForService = {
                 willCommitment: willCommitment,
                 willSalt: willData.willSalt,
@@ -187,51 +180,6 @@ export default function RegisterWill() {
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-    };
-
-    // PDF Upload handlers
-    const handlePDFBeneficiariesExtracted = (beneficiaries: PDFBeneficiary[]) => {
-        console.log('📄 PDF beneficiaries extracted:', beneficiaries);
-
-        // Convert PDF beneficiaries to our format (backend uses snake_case, frontend uses camelCase)
-        const convertedBeneficiaries = beneficiaries.map(b => ({
-            address: b.address,
-            ethAmount: b.eth_amount, // Map from backend field name
-            usdcAmount: b.usdc_amount, // Map from backend field name
-            nftCount: b.nft_count, // Map from backend field name
-            name: b.name
-        }));
-
-        // Calculate totals from the converted beneficiaries
-        const totalEth = convertedBeneficiaries.reduce((sum, b) => sum + parseFloat(b.ethAmount || '0'), 0);
-        const totalUsdc = convertedBeneficiaries.reduce((sum, b) => sum + parseFloat(b.usdcAmount || '0'), 0);
-        const totalNfts = convertedBeneficiaries.reduce((sum, b) => sum + parseInt(b.nftCount || '0'), 0);
-
-        console.log('🔄 Converted beneficiaries:', convertedBeneficiaries);
-        console.log('📊 Calculated totals:', { totalEth, totalUsdc, totalNfts });
-
-        // Update will data with extracted beneficiaries and default description
-        setWillData(prev => ({
-            ...prev,
-            description: prev.description || "Digital Will created from PDF document", // Set default description if empty
-            beneficiaries: convertedBeneficiaries,
-            totalEth: totalEth.toString(),
-            totalUsdc: totalUsdc.toString(),
-            totalNfts: totalNfts.toString(),
-        }));
-
-        // Move to next step
-        setStep(3); // Skip to review step
-    };
-
-    const handlePDFVerificationComplete = (result: any) => {
-        console.log('✅ PDF verification complete:', result);
-        setPdfVerificationResult(result);
-    };
-
-    const handlePDFError = (error: string) => {
-        console.error('❌ PDF error:', error);
-        setLocalError(error);
     };
 
     const handleVerificationMethodSelect = (method: 'passport' | 'aadhaar') => {
@@ -385,7 +333,7 @@ export default function RegisterWill() {
                     </div>
                 </div>
 
-                {/* Registration Method Selection */}
+                {/* Verified — continue to will details */}
                 {step === 0 && isSelfVerified && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -393,50 +341,18 @@ export default function RegisterWill() {
                         className="text-center mb-8"
                     >
                         <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 rounded-lg p-8">
-                            <h2 className="text-3xl font-bold text-white mb-4">📄 Choose Registration Method</h2>
+                            <div className="text-5xl mb-3">✅</div>
+                            <h2 className="text-3xl font-bold text-white mb-4">Identity Verified</h2>
                             <p className="text-gray-300 mb-6 text-lg">
-                                How would you like to register your will?
+                                You're verified. Let's set up your digital will.
                             </p>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <button
-                                    onClick={() => setRegistrationMethod('manual')}
-                                    className={`p-6 rounded-lg border transition-all ${registrationMethod === 'manual'
-                                        ? 'bg-white/20 border-white/40'
-                                        : 'bg-white/10 border-white/20 hover:bg-white/15'
-                                        }`}
-                                >
-                                    <div className="text-4xl mb-3">✍️</div>
-                                    <h3 className="font-semibold text-white mb-2">Manual Entry</h3>
-                                    <p className="text-sm text-gray-300">
-                                        Enter beneficiary details manually using the form
-                                    </p>
-                                </button>
-
-                                <button
-                                    onClick={() => setRegistrationMethod('pdf')}
-                                    className={`p-6 rounded-lg border transition-all ${registrationMethod === 'pdf'
-                                        ? 'bg-white/20 border-white/40'
-                                        : 'bg-white/10 border-white/20 hover:bg-white/15'
-                                        }`}
-                                >
-                                    <div className="text-4xl mb-3">📄</div>
-                                    <h3 className="font-semibold text-white mb-2">PDF Upload</h3>
-                                    <p className="text-sm text-gray-300">
-                                        Upload a signed PDF will and extract beneficiaries automatically
-                                    </p>
-                                </button>
-                            </div>
-
-                            <div className="mt-6">
-                                <Button
-                                    onClick={() => setStep(1)}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
-                                >
-                                    Continue to {registrationMethod === 'manual' ? 'Manual Entry' : 'PDF Upload'}
-                                    <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
+                            <Button
+                                onClick={() => setStep(1)}
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3"
+                            >
+                                Continue to Will Details
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
                         </div>
                     </motion.div>
                 )}
@@ -621,53 +537,7 @@ export default function RegisterWill() {
                     </motion.div>
                 )}
 
-                {step === 1 && registrationMethod === 'pdf' && (
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="space-y-6"
-                    >
-                        <GlassCard className="p-8">
-                            <div className="flex items-center mb-6">
-                                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mr-4">
-                                    <FileText className="text-blue-600 dark:text-blue-400" size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                                        📄 PDF Will Upload
-                                    </h3>
-                                    <p className="text-gray-600 dark:text-gray-300">
-                                        Upload your signed PDF will to automatically extract beneficiary information
-                                    </p>
-                                </div>
-                            </div>
-
-                            {localError && (
-                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-                                    <div className="flex">
-                                        <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                                        <div>
-                                            <h4 className="text-sm font-medium text-red-800 dark:text-red-200">
-                                                Upload Error
-                                            </h4>
-                                            <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                                                {localError}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <PDFUploader
-                                onBeneficiariesExtracted={handlePDFBeneficiariesExtracted}
-                                onVerificationComplete={handlePDFVerificationComplete}
-                                onError={handlePDFError}
-                            />
-                        </GlassCard>
-                    </motion.div>
-                )}
-
-                {step === 1 && registrationMethod === 'manual' && (
+                {step === 1 && (
                     <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}

@@ -1,124 +1,80 @@
 # ZK-AfterLife
 
-**ZK-AfterLife** is a privacy-preserving digital inheritance protocol design that explores how zero-knowledge proofs can be used to enable automated crypto asset distribution upon user inactivity, without revealing will contents, beneficiary identities, or asset allocations.
+**ZK-AfterLife** is a privacy-preserving digital-inheritance protocol: commit to a
+crypto will during your lifetime, and — if you become inactive for a defined period
+— have your assets distributed to beneficiaries, with zero-knowledge proofs keeping
+will contents, beneficiary identities, and allocations private.
 
-The project focuses on protocol architecture, zero-knowledge circuit design, and system-level integration for private inheritance, with Aztec Network considered as the target private execution environment.
-
----
-
-## Motivation
-
-Crypto inheritance today is either:
-- fully custodial,
-- publicly revealing,
-- manually executed, or
-- dependent on trusted intermediaries.
-
-ZK-AfterLife approaches inheritance as a **verifiable conditional execution problem**, where correctness and intent are enforced cryptographically using zero-knowledge proofs rather than trust.
+> **Status: active rebuild toward V1.** This project began as an ETHGlobal
+> New Delhi 2025 prototype. It is being rebuilt into a fully real, verifiable
+> system. For an honest, current picture of what works vs. what is still in
+> progress, read **[`context.md`](./context.md)**. For the roadmap to V1, read
+> **[`newplan.md`](./newplan.md)**.
 
 ---
 
-## High-Level Idea
+## How it works
 
-A user commits to a digital will during their lifetime.  
-If the user becomes inactive for a predefined period, a zero-knowledge proof can be generated to demonstrate that execution conditions are met without revealing private data.
+1. **Verify** — a user proves humanity + age (18+) via **Self Protocol**.
+2. **Register** — the user defines a will (beneficiaries + allocations); the app
+   computes a **Poseidon commitment** and a Merkle root over the beneficiary set
+   and registers it on-chain, depositing the assets.
+3. **Heartbeat** — the user periodically checks in.
+4. **Inactivity** — a missed heartbeat starts a grace period with a veto window
+   (a trusted multisig can cancel a false alarm).
+5. **Execute** — after grace, a **Noir / UltraHonk** proof of will validity is
+   generated client-side and verified on-chain; beneficiaries then claim their
+   exact shares.
 
-The protocol enforces:
-- correctness of beneficiary allocations,
-- validity of execution conditions,
-- privacy of all sensitive information.
-
----
-
-## Core Features
-
-### Zero-Knowledge Privacy
-
-- Will contents remain private through cryptographic commitments.
-- Beneficiary lists are represented using Poseidon-based Merkle trees.
-- Allocation sums are verified inside ZK circuits.
-- Noir circuits enforce execution constraints without disclosure.
-
-### Conditional Execution via Inactivity
-
-- Heartbeat-based liveness signaling.
-- User-defined inactivity thresholds.
-- Grace period with optional veto via multi-signature.
-- Explicitly models inactivity-based consent, not proof of death.
-
-### Document and Identity Binding (Optional)
-
-- Support for uploading signed PDF wills.
-- Cryptographic binding of document hashes to on-chain commitments.
-- Optional identity and age verification using zero-knowledge proofs.
-- External attestations are treated as auxiliary inputs, not core trust assumptions.
+Zero-knowledge proofs enforce correctness — allocation sums, commitment integrity,
+and Merkle inclusion — **without revealing the will's contents**.
 
 ---
 
-## Architecture Overview
+## Architecture
 
-### Smart Contracts (Solidity)
+- **Zero-knowledge circuit (Noir).** Proves commitment correctness, allocation-sum
+  consistency, and a Poseidon Merkle root over up to 8 beneficiaries.
+  See [`noir/will`](./noir/will).
+- **Smart contracts (Solidity / Foundry).** Will registration, heartbeat/grace/veto,
+  on-chain proof verification, and asset distribution. See [`contracts`](./contracts).
+- **Identity (Self Protocol).** On-chain humanity + age gate for registration.
+- **Frontend (Next.js 14).** Wallet integration, client-side proof generation
+  (`@noir-lang/noir_js` + `@aztec/bb.js`), and the full user flow.
+  See [`frontend`](./frontend). Proving runs entirely in the browser — there is
+  no backend service.
 
-- Will commitment registration.
-- Inactivity tracking and execution gating.
-- Zero-knowledge proof verification.
-
-### Zero-Knowledge Layer (Noir)
-
-- Commitment validation.
-- Merkle inclusion proofs for beneficiaries.
-- Allocation consistency checks.
-- Execution condition enforcement.
-
-### Backend Services (Rust + SP1)
-
-- PDF preprocessing and hashing.
-- Beneficiary data extraction.
-- Generation of zero-knowledge proofs for document binding.
-- Mocked and experimental ZK-PDF workflows.
-
-### Private Execution (Planned)
-
-- Aztec Network is the intended private execution layer.
-- Private UTXO-based asset distribution is a design target.
-- Full private execution is not yet implemented.
+The target private-execution layer (**Aztec**) is a Phase 2 goal; see `newplan.md`.
 
 ---
 
-## Execution Flow (Simplified)
+## Development
 
-1. User defines a will (manual input or PDF-based).
-2. Will data is converted into cryptographic commitments.
-3. Commitments are registered on-chain.
-4. User periodically submits heartbeat signals.
-5. Inactivity triggers a grace period.
-6. A zero-knowledge proof of valid execution is produced.
-7. Assets are distributed according to verified constraints.
+```bash
+# Frontend
+cd frontend && npm install && npm run dev
 
----
+# Circuit
+cd noir/will && nargo compile        # requires Noir/Nargo
 
-## Design Philosophy
+# Contracts
+cd contracts && forge build          # requires Foundry
+```
 
-- Zero-knowledge proofs enforce correctness, not storage.
-- Privacy is a first-class requirement.
-- Execution should be verifiable without trusted executors.
-- Legal documents are treated as human-readable artifacts bound cryptographically.
-- The protocol remains meaningful even if optional identity layers are removed.
+Copy `frontend/env.example` to `frontend/.env.local` and fill in your own RPC URLs
+(the app falls back to public endpoints if unset). **Never commit real API keys.**
 
 ---
 
-## Limitations
+## Limitations & honesty
 
-- Inactivity is not equivalent to death.
-- PDF verification is scoped to cryptographic binding, not legal interpretation.
-- Some components (including private execution) are architectural designs rather than full implementations.
-- The system has not been audited.
+- Inactivity is not equivalent to death; the protocol models inactivity-based
+  consent, not proof of death.
+- On a public rollup, individual claims reveal their own amounts at claim time.
+  True execution privacy requires the Aztec track (Phase 2).
+- The system is experimental and **has not been audited**.
 
----
-
-## Status
-
-This repository represents an experimental protocol design and proof-of-work project focused on zero-knowledge systems, circuit design, and privacy-preserving architecture.
+See `context.md` for a precise, component-by-component status.
 
 ---
 
