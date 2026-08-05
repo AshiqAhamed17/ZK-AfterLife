@@ -195,8 +195,8 @@ Follows `design.md` §10 build order. Each box = one commit.
 **D3 · Page reskins** (one commit per page; presentation only — no tx-logic changes)
 - [x] Global chrome: `Header` (wordmark + Pulse chip + wallet) + `Footer`. `(feat(ui): chrome)`
 - [x] Landing `/` — cinematic hero, serif headline, numbered sequence. `(feat(ui): landing)`
-- [ ] Dashboard `/app` — Pulse hero + stat tiles + sealed will. `(feat(ui): dashboard)`
-- [ ] Check-in `/checkin` — Pulse + countdown + single action. `(feat(ui): checkin)`
+- [x] Dashboard `/app` — Pulse hero + stat tiles + sealed will. `(feat(ui): dashboard)`
+- [x] Check-in `/checkin` — Pulse + countdown + single action. `(feat(ui): checkin)`
 - [ ] Register `/register` — stepper flow reskin. `(feat(ui): register)`
 - [ ] Execute `/execute`. `(feat(ui): execute)`
 - [ ] Veto `/veto`. `(feat(ui): veto)`
