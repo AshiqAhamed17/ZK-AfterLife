@@ -197,7 +197,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Landing `/` — cinematic hero, serif headline, numbered sequence. `(feat(ui): landing)`
 - [x] Dashboard `/app` — Pulse hero + stat tiles + sealed will. `(feat(ui): dashboard)`
 - [x] Check-in `/checkin` — Pulse + countdown + single action. `(feat(ui): checkin)`
-- [ ] Register `/register` — stepper flow reskin. `(feat(ui): register)`
+- [x] Register `/register` — stepper flow reskin. `(feat(ui): register)`
 - [ ] Execute `/execute`. `(feat(ui): execute)`
 - [ ] Veto `/veto`. `(feat(ui): veto)`
 - [ ] Claims `/claims`. `(feat(ui): claims)`
