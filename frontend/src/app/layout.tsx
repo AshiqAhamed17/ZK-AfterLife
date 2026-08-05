@@ -1,5 +1,6 @@
 import ClientThemeProvider from "@/components/ClientThemeProvider";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { ToastProvider } from "@/components/ui/Toast";
 import { WalletProvider } from "@/lib/WalletContext";
 import type { Metadata } from "next";
@@ -38,6 +39,7 @@ export default function RootLayout({
             <ToastProvider>
               <Header />
               <div className="min-h-[calc(100vh-56px)]">{children}</div>
+              <Footer />
             </ToastProvider>
           </WalletProvider>
         </ClientThemeProvider>
