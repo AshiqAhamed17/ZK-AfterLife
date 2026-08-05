@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import Button from "@/components/ui/Button";
 
 export const metadata: Metadata = {
-  title: "Styleguide — ZK-AfterLife",
+  title: "Styleguide · ZK-AfterLife",
   description: "Design tokens and type scale for the Quiet Cryptography system.",
 };
 
@@ -84,7 +85,7 @@ export default function Styleguide() {
         Quiet <span className="italic">Cryptography</span>
       </h1>
       <p className="t-body-l max-w-[560px] text-ink-muted">
-        The cold precision of cryptography, in service of a warm human act — passing
+        The cold precision of cryptography, in service of a warm human act · passing
         on what matters, privately. Every token and type role below is drawn from{" "}
         <span className="t-data text-ink">design.md</span>.
       </p>
@@ -111,9 +112,9 @@ export default function Styleguide() {
       <Section eyebrow="Color" title="Tokens">
         <div className="space-y-10">
           {[
-            { label: "Base — obsidian", items: base },
-            { label: "Ink — heirloom paper", items: ink },
-            { label: "Accent — seal gold", items: accent },
+            { label: "Base · obsidian", items: base },
+            { label: "Ink · heirloom paper", items: ink },
+            { label: "Accent · seal gold", items: accent },
             { label: "Semantic status", items: status },
           ].map((group) => (
             <div key={group.label}>
@@ -136,7 +137,7 @@ export default function Styleguide() {
             { cls: "t-h1", label: "H1 · serif 40/46", sample: "Your wishes, sealed" },
             { cls: "t-h2", label: "H2 · sans 26/32 · 600", sample: "Name your beneficiaries" },
             { cls: "t-h3", label: "H3 · sans 19/26 · 600", sample: "Grace period" },
-            { cls: "t-body-l", label: "Body-L · sans 18/30", sample: "A calm, exact sentence that reads like an estate letter — never a DeFi dashboard." },
+            { cls: "t-body-l", label: "Body-L · sans 18/30", sample: "A calm, exact sentence that reads like an estate letter · never a DeFi dashboard." },
             { cls: "t-body", label: "Body · sans 15/24", sample: "Sensitive values stay sealed until they are needed." },
           ].map((r) => (
             <div key={r.cls} className="grid grid-cols-1 gap-2 md:grid-cols-[220px_1fr] md:items-baseline">
@@ -147,7 +148,7 @@ export default function Styleguide() {
 
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_1fr] md:items-baseline">
             <div className="t-caption">Eyebrow · mono 13 · caps</div>
-            <div className="t-eyebrow">01 — SEAL A WILL</div>
+            <div className="t-eyebrow">01 · SEAL A WILL</div>
           </div>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[220px_1fr] md:items-baseline">
             <div className="t-caption">Data · mono 15 · tabular</div>
@@ -177,6 +178,26 @@ export default function Styleguide() {
         </div>
       </Section>
 
+      {/* Buttons */}
+      <Section eyebrow="Component" title="Button">
+        <div className="flex flex-wrap items-center gap-4">
+          <Button variant="primary">Seal a will</Button>
+          <Button variant="secondary">How it works</Button>
+          <Button variant="ghost">Cancel</Button>
+          <Button variant="destructive">Execute will</Button>
+          <Button variant="primary" loading>
+            Sealing
+          </Button>
+          <Button variant="primary" disabled>
+            Disabled
+          </Button>
+        </div>
+        <p className="t-body mt-6 max-w-[560px] text-ink-muted">
+          One seal-gold primary per view. Secondary is a hairline outline, ghost is
+          text only, destructive turns solid on hover. Focus shows the seal ring.
+        </p>
+      </Section>
+
       {/* Accent usage reminder */}
       <Section eyebrow="Discipline" title="One accent, used sparingly">
         <div className="flex flex-wrap items-center gap-4">
@@ -197,7 +218,7 @@ export default function Styleguide() {
           </span>
         </div>
         <p className="t-body mt-6 max-w-[560px] text-ink-muted">
-          Seal gold is the only brand-filled element — one primary action per view.
+          Seal gold is the only brand-filled element · one primary action per view.
           Green and red are status only, never decoration.
         </p>
       </Section>

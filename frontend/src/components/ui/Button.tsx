@@ -1,16 +1,56 @@
+// Design-system Button (design.md §6). Mono, uppercase, one seal-gold primary
+// per view. "outline" is kept as an alias of "secondary" for existing pages.
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "destructive"
+  | "outline";
+
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: "primary" | "secondary" | "ghost" | "outline";
+  variant?: ButtonVariant;
+  loading?: boolean;
 };
 
-export default function Button({ variant = "primary", className = "", ...props }: ButtonProps) {
-    const base = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
-    const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
-        primary: "bg-black text-white dark:bg-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 px-5 py-2.5",
-        secondary: "border hover:bg-gray-50 dark:hover:bg-neutral-900 px-5 py-2.5",
-        ghost: "hover:bg-gray-50 dark:hover:bg-neutral-900 px-3 py-2",
-        outline: "border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 px-5 py-2.5",
-    };
-    return <button className={`${base} ${variants[variant]} ${className}`} {...props} />;
+const VARIANTS: Record<ButtonVariant, string> = {
+  primary: "h-11 px-5 bg-seal text-bg hover:bg-seal-hi",
+  secondary: "h-11 px-5 border border-hairline text-ink hover:border-seal",
+  outline: "h-11 px-5 border border-hairline text-ink hover:border-seal",
+  ghost: "h-11 px-3 text-ink hover:text-seal",
+  destructive:
+    "h-11 px-5 border border-danger text-danger hover:bg-danger hover:text-bg",
+};
+
+export default function Button({
+  variant = "primary",
+  loading = false,
+  disabled,
+  className = "",
+  children,
+  ...props
+}: ButtonProps) {
+  const base =
+    "inline-flex select-none items-center justify-center gap-2 rounded-control font-mono text-[13px] font-medium uppercase tracking-wide transition-colors disabled:pointer-events-none disabled:opacity-40";
+
+  return (
+    <button
+      className={`${base} ${VARIANTS[variant]} ${className}`}
+      disabled={disabled || loading}
+      {...props}
+    >
+      {loading ? (
+        <span className="inline-flex items-center gap-1" aria-label="Loading">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="h-1 w-1 rounded-pill bg-current animate-pulse"
+              style={{ animationDelay: `${i * 160}ms` }}
+            />
+          ))}
+        </span>
+      ) : (
+        children
+      )}
+    </button>
+  );
 }
-
-
