@@ -188,8 +188,8 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] `Button` (primary/secondary/ghost/destructive) + focus ring. `(feat(ui): Button)`
 - [x] `Field` (label/input/validation) + `StatusBadge`. `(feat(ui): Field + StatusBadge)`
 - [x] `VaultCard` + `DataRow` (truncated address, click-to-copy) + `StatTile`. `(feat(ui): card primitives)`
-- [ ] **Signature:** `Pulse` (alive/grace/flat states, reduced-motion). `(feat(ui): Pulse)`
-- [ ] **Signature:** `Commitment` (sealed ↔ resolved redaction reveal). `(feat(ui): Commitment)`
+- [x] **Signature:** `Pulse` (alive/grace/flat states, reduced-motion). `(feat(ui): Pulse)`
+- [x] **Signature:** `Commitment` (sealed ↔ resolved redaction reveal). `(feat(ui): Commitment)`
 - [ ] `Stepper` + `Modal` + `Toast`. `(feat(ui): flow primitives)`
 
 **D3 · Page reskins** (one commit per page; presentation only — no tx-logic changes)

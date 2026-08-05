@@ -5,6 +5,8 @@ import Field from "@/components/ui/Field";
 import VaultCard from "@/components/ui/VaultCard";
 import DataRow from "@/components/ui/DataRow";
 import StatTile from "@/components/ui/StatTile";
+import Pulse from "@/components/ui/Pulse";
+import Commitment from "@/components/ui/Commitment";
 
 export const metadata: Metadata = {
   title: "Styleguide · ZK-AfterLife",
@@ -247,6 +249,40 @@ export default function Styleguide() {
             <StatTile label="Grace window" value="30" unit="days" />
           </div>
         </div>
+      </Section>
+
+      {/* Signature: Pulse */}
+      <Section eyebrow="Signature" title="The Pulse">
+        <div className="max-w-[520px] space-y-8">
+          <div>
+            <div className="t-label mb-2">Alive · steady green beat</div>
+            <Pulse state="alive" />
+          </div>
+          <div>
+            <div className="t-label mb-2">Grace · slower amber</div>
+            <Pulse state="grace" />
+          </div>
+          <div>
+            <div className="t-label mb-2">Flat · inactive / executed</div>
+            <Pulse state="flat" />
+          </div>
+        </div>
+        <p className="t-body mt-6 max-w-[560px] text-ink-muted">
+          The line&apos;s color and rhythm are the account status, not decoration.
+          Reduced-motion shows a still trace with the text label.
+        </p>
+      </Section>
+
+      {/* Signature: Commitment */}
+      <Section eyebrow="Signature" title="The Seal">
+        <div className="flex flex-col gap-5">
+          <Commitment value="0x9f3ad4c2b1e04e21" revealable label="Commitment" />
+          <Commitment value="4.250000 ETH" revealable label="Your share" />
+        </div>
+        <p className="t-body mt-6 max-w-[560px] text-ink-muted">
+          Click to resolve a sealed value. On your authenticated view it decrypts;
+          to everyone else it stays sealed.
+        </p>
       </Section>
 
       {/* Accent usage reminder */}
