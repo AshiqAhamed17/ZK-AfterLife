@@ -169,3 +169,28 @@ body {
     color: var(--color-ink-faint);
   }
 }
+
+/* =============================================================================
+   Signature: the Pulse (design.md §5.1) — a heart-monitor blip traveling the
+   EKG trace. Color + rhythm are set per status by the component.
+   ============================================================================= */
+
+@keyframes pulse-travel {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+.pulse-travel {
+  animation: pulse-travel var(--pulse-dur, 3.2s) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-travel {
+    display: none;
+  }
+  .pulse-base {
+    opacity: 1;
+  }
+}
+
