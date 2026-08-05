@@ -1,345 +1,150 @@
-"use client";
-import Hero from '@/components/Hero';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
-import GlassCard from '@/components/ui/GlassCard';
-import { motion } from 'framer-motion';
-import { Code, Globe, Lock, ShieldCheck, Wallet, Zap, ArrowRight, Star, Check } from 'lucide-react';
-import Link from 'next/link';
+import Button from "@/components/ui/Button";
+import VaultCard from "@/components/ui/VaultCard";
+import DataRow from "@/components/ui/DataRow";
+import Commitment from "@/components/ui/Commitment";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Pulse from "@/components/ui/Pulse";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
+const STEPS = [
+  {
+    n: "01",
+    title: "Seal",
+    body: "Name your beneficiaries and their shares. We turn them into a single commitment and lock the assets. Nothing about the plan is visible on-chain.",
+    detail: ["On-chain", "commitment only"],
+  },
+  {
+    n: "02",
+    title: "Check in",
+    body: "A periodic check-in proves you are still here. Miss it, and a grace period begins, with a veto window for a trusted circle to stop a false alarm.",
+    detail: ["Inactivity", "grace + veto window"],
+  },
+  {
+    n: "03",
+    title: "Execute",
+    body: "After the grace period, a zero-knowledge proof distributes the exact shares to each beneficiary. Correctness, proven without disclosure.",
+    detail: ["Proof", "verified on-chain"],
+  },
+];
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-hidden">
-      {/* Dynamic Background with Multiple Layers */}
-      <div className="fixed inset-0 z-0">
-        {/* Base gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-purple-900 to-blue-950" />
-        
-        {/* Animated gradient orbs */}
-        <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-purple-400/30 to-pink-400/30 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute top-3/4 right-1/4 w-80 h-80 bg-gradient-to-r from-blue-400/30 to-cyan-400/30 rounded-full blur-3xl animate-pulse delay-1000" />
-          <div className="absolute bottom-1/4 left-1/2 w-72 h-72 bg-gradient-to-r from-violet-400/30 to-purple-400/30 rounded-full blur-3xl animate-pulse delay-2000" />
+    <main className="mx-auto max-w-[1200px] px-6">
+      {/* Hero */}
+      <section
+        className="relative mt-6 overflow-hidden rounded-[20px] border border-hairline"
+        style={{
+          background:
+            "radial-gradient(120% 80% at 25% 8%, rgba(216,178,106,0.16), transparent 55%), radial-gradient(120% 90% at 85% 100%, var(--cool-glow), transparent 55%), #0c0c0e",
+        }}
+      >
+        {/* ambient pulse */}
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 opacity-40">
+          <Pulse state="alive" height={140} />
         </div>
-        
-        {/* Noise texture overlay */}
-        <div className="absolute inset-0 opacity-5 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4gPGZpbHRlciBpZD0ibm9pc2UiPiA8ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9IjAuOSIgbnVtT2N0YXZlcz0iNCIvPiA8L2ZpbHRlcj4gPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI25vaXNlKSIgb3BhY2l0eT0iMC4wNSIvPiA8L3N2Zz4=')] repeat" />
-      </div>
 
-      <div className="relative z-10">
-        <Hero />
-
-        {/* Enhanced Features Section */}
-        <section className="container mx-auto px-4 py-24" id="features">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }} 
-            whileInView={{ opacity: 1, y: 0 }} 
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <Badge className="mb-4 bg-white/10 backdrop-blur-xl border-white/20 text-white">
-              Privacy-First Infrastructure
-            </Badge>
-            <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-6">
-              Why zk-afterlife-agent?
-            </h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              The future of inheritance is here. Secure, private, and completely trustless.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8 mt-12">
-            {[
-              {
-                Icon: Lock, 
-                title: 'Confidential by Design', 
-                desc: 'Beneficiaries and splits remain private with Noir zk-SNARKs on Aztec. Your inheritance plans stay completely confidential.',
-                gradient: 'from-purple-500/20 to-pink-500/20'
-              }, 
-              {
-                Icon: ShieldCheck, 
-                title: 'Trustless Execution', 
-                desc: 'No middlemen required. Ethereum heartbeat monitoring with multisig veto ensures maximum safety and reliability.',
-                gradient: 'from-blue-500/20 to-cyan-500/20'
-              }, 
-              {
-                Icon: Wallet, 
-                title: 'Multi-Asset Support', 
-                desc: 'ETH and ERC-20 tokens at launch, with NFT support coming next. Your entire digital wealth, secured.',
-                gradient: 'from-violet-500/20 to-purple-500/20'
-              }
-            ].map(({ Icon, title, desc, gradient }, i) => (
-              <motion.div 
-                key={title} 
-                initial={{ opacity: 0, y: 20 }} 
-                whileInView={{ opacity: 1, y: 0 }} 
-                viewport={{ once: true }} 
-                transition={{ delay: i * 0.1 }}
-                className="group"
-              >
-                <div className={`relative p-8 rounded-2xl bg-gradient-to-br ${gradient} backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/10`}>
-                  {/* Glow effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/5 to-blue-500/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-3 bg-white/10 rounded-xl backdrop-blur-sm">
-                        <Icon className="text-white" size={24} />
-                      </div>
-                      <h3 className="text-xl font-semibold text-white">{title}</h3>
-                    </div>
-                    <p className="text-gray-300 leading-relaxed">{desc}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+        <div className="relative px-6 py-24 sm:px-14 sm:py-32">
+          <div className="t-eyebrow mb-6">ZERO-KNOWLEDGE INHERITANCE</div>
+          <h1 className="t-display max-w-[16ch]">
+            Pass on what matters. <span className="italic text-seal">Privately.</span>
+          </h1>
+          <p className="t-body-l mt-6 max-w-[52ch] text-ink-muted">
+            Seal a will during your life. If you go quiet, it executes on its own,
+            distributing your assets without ever revealing who gets what.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <Link href="/register">
+              <Button>
+                Seal a will
+                <ArrowRight size={16} />
+              </Button>
+            </Link>
+            <Link href="#how">
+              <Button variant="secondary">How it works</Button>
+            </Link>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Enhanced Tech Stack Section */}
-        <section className="py-24">
-          <div className="container mx-auto px-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }} 
-              whileInView={{ opacity: 1, y: 0 }} 
-              viewport={{ once: true }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-6">
-                Built on Cutting-Edge ZK Tech
-              </h2>
-              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-                Leveraging the most advanced zero-knowledge infrastructure for ultimate privacy and security
-              </p>
-            </motion.div>
-
-            <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
-              <motion.div 
-                initial={{ opacity: 0, x: -30 }} 
-                whileInView={{ opacity: 1, x: 0 }} 
-                viewport={{ once: true }} 
-                transition={{ delay: 0.1 }}
-                className="group"
-              >
-                <div className="relative p-10 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 hover:border-purple-500/30 transition-all duration-500 hover:scale-105">
-                  {/* Animated border gradient */}
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/20 via-transparent to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="p-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl backdrop-blur-sm">
-                        <Zap className="text-purple-400" size={32} />
-                      </div>
-                      <h3 className="text-2xl font-semibold text-white">Aztec Network</h3>
-                    </div>
-                    <p className="text-gray-300 leading-relaxed mb-6 text-lg">
-                      Private UTXOs and contracts enabling confidential execution. The perfect foundation for inheritance where privacy is absolutely paramount.
-                    </p>
-                    <div className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors">
-                      <a href="https://aztec.network" target="_blank" rel="noreferrer" className="font-medium">
-                        Learn more about Aztec
-                      </a>
-                      <ArrowRight size={16} />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, x: 30 }} 
-                whileInView={{ opacity: 1, x: 0 }} 
-                viewport={{ once: true }} 
-                transition={{ delay: 0.2 }}
-                className="group"
-              >
-                <div className="relative p-10 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 hover:border-blue-500/30 transition-all duration-500 hover:scale-105">
-                  {/* Animated border gradient */}
-                  <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-500/20 via-transparent to-cyan-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-4 mb-6">
-                      <div className="p-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-xl backdrop-blur-sm">
-                        <Code className="text-blue-400" size={32} />
-                      </div>
-                      <h3 className="text-2xl font-semibold text-white">Noir Language</h3>
-                    </div>
-                    <p className="text-gray-300 leading-relaxed mb-6 text-lg">
-                      Advanced zk-SNARK circuits that prove your will's validity without revealing its contents. Built specifically for privacy-first applications.
-                    </p>
-                    <div className="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors">
-                      <a href="https://noir-lang.org" target="_blank" rel="noreferrer" className="font-medium">
-                        Explore Noir
-                      </a>
-                      <ArrowRight size={16} />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
+      {/* Sealed-will artifact */}
+      <section className="mt-8 grid gap-8 md:grid-cols-[1fr_1fr] md:items-center">
+        <div>
+          <div className="t-eyebrow mb-4">THE ARTIFACT</div>
+          <h2 className="t-h1 mb-4">A will you can prove, but no one can read.</h2>
+          <p className="t-body text-ink-muted">
+            On a public chain, your plan lives only as a commitment. Amounts and
+            beneficiaries stay sealed until they are needed, and even then only the
+            rightful claimant resolves their own share.
+          </p>
+        </div>
+        <VaultCard
+          eyebrow="Sealed will"
+          action={
+            <StatusBadge tone="alive" dot>
+              Active
+            </StatusBadge>
+          }
+        >
+          <DataRow label="Commitment" address="0x9f3ad4c2b1e04e21aa77bc41" />
+          <DataRow label="Beneficiaries" value="3" />
+          <div className="flex items-center justify-between border-b border-hairline py-3 last:border-b-0">
+            <span className="t-label">Your share</span>
+            <Commitment value="4.250000 ETH" revealable label="Your share" />
           </div>
-        </section>
+          <DataRow label="Status" value="Sealed until execution" />
+        </VaultCard>
+      </section>
 
-        {/* Enhanced How It Works Section */}
-        <section className="py-24" id="how">
-          <div className="container mx-auto px-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }} 
-              whileInView={{ opacity: 1, y: 0 }} 
-              viewport={{ once: true }}
-              className="text-center mb-16"
+      {/* Numbered sequence */}
+      <section id="how" className="mt-28 scroll-mt-20">
+        <div className="t-eyebrow mb-10">HOW IT WORKS</div>
+        <div>
+          {STEPS.map((s) => (
+            <div
+              key={s.n}
+              className="grid gap-6 border-t border-hairline py-12 md:grid-cols-[120px_1fr_240px] md:gap-12"
             >
-              <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-6">
-                How it Works
-              </h2>
-              <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-                A simple three-step process that ensures your digital legacy is protected
-              </p>
-            </motion.div>
-
-            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-              {[
-                {
-                  step: "01",
-                  title: "Register Your Will",
-                  description: "Encrypt your inheritance plan off-chain, store commitment on Aztec, and set up heartbeat monitoring with veto capabilities on Ethereum.",
-                  icon: Lock,
-                  delay: 0.1
-                },
-                {
-                  step: "02", 
-                  title: "Maintain Heartbeat",
-                  description: "Check-in periodically to maintain your on-chain heartbeat. If missed, a grace period automatically starts with emergency veto capability.",
-                  icon: Star,
-                  delay: 0.2
-                },
-                {
-                  step: "03",
-                  title: "Execute Privately", 
-                  description: "After the grace period, submit a zero-knowledge proof to distribute assets privately on Aztec with complete confidentiality.",
-                  icon: Check,
-                  delay: 0.3
-                }
-              ].map(({ step, title, description, icon: Icon, delay }) => (
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay }}
-                  className="group relative"
-                >
-                  <div className="relative p-8 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/10">
-                    {/* Step number */}
-                    <div className="absolute -top-4 -right-4 w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                      {step}
-                    </div>
-                    
-                    {/* Icon */}
-                    <div className="mb-6">
-                      <div className="p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl w-fit">
-                        <Icon className="text-purple-400" size={32} />
-                      </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <h3 className="text-2xl font-semibold text-white mb-4">{title}</h3>
-                    <p className="text-gray-300 leading-relaxed">{description}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Enhanced Powered By Section */}
-        <section className="py-24">
-          <div className="container mx-auto px-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }} 
-              whileInView={{ opacity: 1, y: 0 }} 
-              viewport={{ once: true }}
-              className="text-center mb-16"
-            >
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-6">
-                Powered by Industry Leaders
-              </h2>
-            </motion.div>
-
-            <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
-              {[
-                {
-                  name: "Aztec Network",
-                  description: "Private UTXOs and contracts for confidential execution",
-                  gradient: "from-purple-500/10 to-pink-500/10",
-                  delay: 0.1
-                },
-                {
-                  name: "Noir",
-                  description: "zk-SNARK circuits to prove your will without revealing it",
-                  gradient: "from-blue-500/10 to-cyan-500/10", 
-                  delay: 0.2
-                },
-                {
-                  name: "Ethereum",
-                  description: "Public heartbeat monitoring, watchdog, and veto multisig",
-                  gradient: "from-violet-500/10 to-purple-500/10",
-                  delay: 0.3
-                }
-              ].map(({ name, description, gradient, delay }) => (
-                <motion.div
-                  key={name}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay }}
-                  className="group"
-                >
-                  <div className={`relative p-8 rounded-2xl bg-gradient-to-br ${gradient} backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all duration-500 hover:scale-105`}>
-                    <h3 className="text-xl font-semibold text-white mb-3">{name}</h3>
-                    <p className="text-gray-300">{description}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Enhanced CTA Section */}
-        <section className="py-24">
-          <div className="container mx-auto px-4">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="relative max-w-4xl mx-auto text-center"
-            >
-              {/* Background effects */}
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-3xl blur-3xl" />
-              <div className="relative p-12 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/20">
-                <h3 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-6">
-                  Ready to Secure Your Digital Legacy?
-                </h3>
-                <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-                  Join the future of inheritance planning. Private, secure, and completely trustless.
-                </p>
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <Link href="/app">
-                    <Button className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                      Launch App
-                      <ArrowRight className="ml-2" size={20} />
-                    </Button>
-                  </Link>
-                </motion.div>
+              <div className="t-h1 text-seal">{s.n}</div>
+              <div>
+                <h3 className="t-h2 mb-3">{s.title}</h3>
+                <p className="t-body max-w-[52ch] text-ink-muted">{s.body}</p>
               </div>
-            </motion.div>
+              <div className="flex items-start md:justify-end">
+                <div className="flex items-center gap-2 font-mono text-[13px] text-ink-faint">
+                  <span className="text-ink-muted">{s.detail[0]}</span>
+                  <span>·</span>
+                  <span>{s.detail[1]}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="border-t border-hairline" />
+        </div>
+      </section>
+
+      {/* Closing */}
+      <section className="mt-24 mb-24">
+        <div
+          className="relative overflow-hidden rounded-[20px] border border-hairline px-6 py-20 text-center sm:px-14"
+          style={{
+            background:
+              "radial-gradient(90% 120% at 50% 0%, rgba(216,178,106,0.12), transparent 60%), #0c0c0e",
+          }}
+        >
+          <h2 className="t-h1 mx-auto max-w-[22ch]">
+            Your wishes, sealed until they are needed.
+          </h2>
+          <div className="mt-8 flex justify-center">
+            <Link href="/register">
+              <Button>
+                Seal a will
+                <ArrowRight size={16} />
+              </Button>
+            </Link>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
