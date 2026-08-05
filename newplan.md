@@ -178,11 +178,11 @@ wire real on-chain verification, single hardcoded→env address config.
 ### Phase D — Design system & UI redesign  ·  branch `design-system`
 Follows `design.md` §10 build order. Each box = one commit.
 
-**D1 · Foundation**
+**D1 · Foundation** ✅ DONE
 - [x] Design spec `design.md` committed. `(docs(design))`
-- [ ] Wire §4 tokens into Tailwind v4 `@theme` in `globals.css` (color, radius, spacing). `(feat(ui): design tokens)`
-- [ ] Load fonts via `next/font`: Fraunces (serif), Geist Sans, Geist Mono; set `--font-*`. `(feat(ui): fonts)`
-- [ ] Add `/styleguide` route rendering every token + the full type scale. `(feat(ui): styleguide route)`
+- [x] Wire §4 tokens into Tailwind v4 `@theme` in `globals.css` (color, radius, fonts; dark-only). `(feat(ui): design tokens)`
+- [x] Load fonts: Fraunces (serif) via next/font, Geist Sans/Mono via geist pkg; `--font-*` set. `(feat(ui): fonts)`
+- [x] Add `/styleguide` route rendering every token + the full type scale. `(feat(ui): styleguide route)`
 
 **D2 · Primitives** (each its own commit)
 - [ ] `Button` (primary/secondary/ghost/destructive) + focus ring. `(feat(ui): Button)`
