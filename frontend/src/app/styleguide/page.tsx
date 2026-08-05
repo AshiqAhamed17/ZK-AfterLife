@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
 import Button from "@/components/ui/Button";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Field from "@/components/ui/Field";
+import VaultCard from "@/components/ui/VaultCard";
+import DataRow from "@/components/ui/DataRow";
+import StatTile from "@/components/ui/StatTile";
 
 export const metadata: Metadata = {
   title: "Styleguide · ZK-AfterLife",
@@ -196,6 +201,52 @@ export default function Styleguide() {
           One seal-gold primary per view. Secondary is a hairline outline, ghost is
           text only, destructive turns solid on hover. Focus shows the seal ring.
         </p>
+      </Section>
+
+      {/* Status badge */}
+      <Section eyebrow="Component" title="Status badge">
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusBadge tone="alive" dot>Active</StatusBadge>
+          <StatusBadge tone="grace">Grace · 29d</StatusBadge>
+          <StatusBadge tone="seal">Sealed</StatusBadge>
+          <StatusBadge tone="neutral">Executed</StatusBadge>
+          <StatusBadge tone="danger">Vetoed</StatusBadge>
+        </div>
+      </Section>
+
+      {/* Field */}
+      <Section eyebrow="Component" title="Field">
+        <div className="grid max-w-[520px] gap-6">
+          <Field label="Beneficiary name" placeholder="e.g. Priya" />
+          <Field label="Ethereum address" placeholder="0x..." mono />
+          <Field
+            label="ETH amount"
+            placeholder="0.0"
+            mono
+            error="Amount exceeds your sealed balance."
+          />
+        </div>
+      </Section>
+
+      {/* Card primitives */}
+      <Section eyebrow="Component" title="Vault card · data row · stat tile">
+        <div className="grid gap-6 md:grid-cols-2">
+          <VaultCard
+            eyebrow="Sealed will"
+            action={<StatusBadge tone="alive" dot>Active</StatusBadge>}
+          >
+            <DataRow label="Commitment" address="0x9f3ad4c2b1e04e21aa77bc41" />
+            <DataRow label="Owner" address="0x1234ab56cd78ef90aa11bb22" />
+            <DataRow label="Total ETH" value="4.250000" />
+            <DataRow label="Beneficiaries" value="3" />
+          </VaultCard>
+          <div className="grid grid-cols-2 gap-6">
+            <StatTile label="Assets sealed" value="4.25" unit="ETH" />
+            <StatTile label="Beneficiaries" value="3" />
+            <StatTile label="Next check-in" value="29" unit="days" />
+            <StatTile label="Grace window" value="30" unit="days" />
+          </div>
+        </div>
       </Section>
 
       {/* Accent usage reminder */}

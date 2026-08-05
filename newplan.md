@@ -185,9 +185,9 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Add `/styleguide` route rendering every token + the full type scale. `(feat(ui): styleguide route)`
 
 **D2 · Primitives** (each its own commit)
-- [ ] `Button` (primary/secondary/ghost/destructive) + focus ring. `(feat(ui): Button)`
-- [ ] `Field` (label/input/validation) + `StatusBadge`. `(feat(ui): Field + StatusBadge)`
-- [ ] `VaultCard` + `DataRow` (truncated address, click-to-copy) + `StatTile`. `(feat(ui): card primitives)`
+- [x] `Button` (primary/secondary/ghost/destructive) + focus ring. `(feat(ui): Button)`
+- [x] `Field` (label/input/validation) + `StatusBadge`. `(feat(ui): Field + StatusBadge)`
+- [x] `VaultCard` + `DataRow` (truncated address, click-to-copy) + `StatTile`. `(feat(ui): card primitives)`
 - [ ] **Signature:** `Pulse` (alive/grace/flat states, reduced-motion). `(feat(ui): Pulse)`
 - [ ] **Signature:** `Commitment` (sealed ↔ resolved redaction reveal). `(feat(ui): Commitment)`
 - [ ] `Stepper` + `Modal` + `Toast`. `(feat(ui): flow primitives)`
