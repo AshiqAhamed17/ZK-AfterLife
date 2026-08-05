@@ -1,5 +1,6 @@
 import ClientThemeProvider from "@/components/ClientThemeProvider";
 import Header from "@/components/Header";
+import { ToastProvider } from "@/components/ui/Toast";
 import { WalletProvider } from "@/lib/WalletContext";
 import type { Metadata } from "next";
 import { Fraunces } from "next/font/google";
@@ -34,8 +35,10 @@ export default function RootLayout({
       <body className="antialiased">
         <ClientThemeProvider>
           <WalletProvider>
-            <Header />
-            <div className="min-h-[calc(100vh-56px)]">{children}</div>
+            <ToastProvider>
+              <Header />
+              <div className="min-h-[calc(100vh-56px)]">{children}</div>
+            </ToastProvider>
           </WalletProvider>
         </ClientThemeProvider>
       </body>

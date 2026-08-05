@@ -190,7 +190,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] `VaultCard` + `DataRow` (truncated address, click-to-copy) + `StatTile`. `(feat(ui): card primitives)`
 - [x] **Signature:** `Pulse` (alive/grace/flat states, reduced-motion). `(feat(ui): Pulse)`
 - [x] **Signature:** `Commitment` (sealed ↔ resolved redaction reveal). `(feat(ui): Commitment)`
-- [ ] `Stepper` + `Modal` + `Toast`. `(feat(ui): flow primitives)`
+- [x] `Stepper` + `Modal` + `Toast`. `(feat(ui): flow primitives)` — **D2 complete**
 
 **D3 · Page reskins** (one commit per page; presentation only — no tx-logic changes)
 - [ ] Global chrome: `Header` (wordmark + Pulse chip + wallet) + `Footer`. `(feat(ui): chrome)`

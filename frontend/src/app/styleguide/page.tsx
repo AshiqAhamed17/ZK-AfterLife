@@ -7,6 +7,8 @@ import DataRow from "@/components/ui/DataRow";
 import StatTile from "@/components/ui/StatTile";
 import Pulse from "@/components/ui/Pulse";
 import Commitment from "@/components/ui/Commitment";
+import Stepper from "@/components/ui/Stepper";
+import Demos from "./_Demos";
 
 export const metadata: Metadata = {
   title: "Styleguide · ZK-AfterLife",
@@ -283,6 +285,21 @@ export default function Styleguide() {
           Click to resolve a sealed value. On your authenticated view it decrypts;
           to everyone else it stays sealed.
         </p>
+      </Section>
+
+      {/* Stepper */}
+      <Section eyebrow="Component" title="Stepper">
+        <div className="max-w-[640px]">
+          <Stepper
+            steps={["Verify", "Details", "Beneficiaries", "Review"]}
+            current={1}
+          />
+        </div>
+      </Section>
+
+      {/* Modal & Toast */}
+      <Section eyebrow="Component" title="Modal & Toast">
+        <Demos />
       </Section>
 
       {/* Accent usage reminder */}
