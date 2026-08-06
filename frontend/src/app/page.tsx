@@ -92,7 +92,6 @@ export default function Home() {
             <span className="t-label">Your share</span>
             <Commitment value="4.250000 ETH" revealable label="Your share" />
           </div>
-          <DataRow label="Status" value="Sealed until execution" />
         </VaultCard>
       </section>
 

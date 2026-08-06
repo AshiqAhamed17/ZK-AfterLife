@@ -208,14 +208,6 @@ export default function ExecuteWill() {
           label="In grace"
           value={isLoadingWills ? "…" : String(allWills.filter((w) => w.isInGracePeriod).length)}
         />
-        <StatTile
-          label="Claimable"
-          value={
-            isLoadingWills
-              ? "…"
-              : String(allWills.filter((w) => w.isExecutable || w.isInGracePeriod).length)
-          }
-        />
       </div>
 
       {/* Search + filter */}

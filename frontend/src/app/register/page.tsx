@@ -36,8 +36,6 @@ export default function RegisterWill() {
     isConnected,
     account,
     registerWill,
-    withdrawEth,
-    withdrawAllEth,
     connectWallet,
     isLoading,
     error,
@@ -368,19 +366,6 @@ export default function RegisterWill() {
           ) : null}
 
           {localError ? <p className="t-caption mt-4 text-danger">{localError}</p> : null}
-
-          <div className="mt-8 border-t border-hairline pt-4">
-            <button
-              onClick={() => {
-                setIsSelfVerified(true);
-                setSelfVerificationMethod("passport");
-                setStep(1);
-              }}
-              className="t-caption text-ink-faint underline transition-colors hover:text-ink-muted"
-            >
-              Skip for now (testnet)
-            </button>
-          </div>
         </VaultCard>
       ) : null}
 
@@ -584,40 +569,7 @@ export default function RegisterWill() {
             </div>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  const willCommitment = "0x" + willData.willSalt; // Simplified for demo
-                  await withdrawEth(willCommitment);
-                  alert("ETH withdrawn successfully!");
-                } catch (err) {
-                  console.error("Withdrawal failed:", err);
-                  alert("Withdrawal failed. Please try again.");
-                }
-              }}
-            >
-              Withdraw ETH
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                try {
-                  const willCommitment = "0x" + willData.willSalt; // Simplified for demo
-                  await withdrawAllEth(willCommitment);
-                  alert("All ETH withdrawn successfully!");
-                } catch (err) {
-                  console.error("Withdrawal failed:", err);
-                  alert("Withdrawal failed. Please try again.");
-                }
-              }}
-            >
-              Withdraw all
-            </Button>
-          </div>
-
-          <div className="mt-8 flex flex-wrap gap-3 border-t border-hairline pt-6">
+          <div className="mt-6 flex flex-wrap gap-3 border-t border-hairline pt-6">
             <Button onClick={() => (window.location.href = "/checkin")}>
               Set up check-ins <ArrowRight size={16} />
             </Button>
