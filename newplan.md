@@ -201,7 +201,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Execute `/execute`. `(feat(ui): execute)`
 - [x] Veto `/veto`. `(feat(ui): veto)`
 - [x] Claims `/claims`. `(feat(ui): claims)`
-- [ ] Withdraw `/withdraw`. `(feat(ui): withdraw)`
+- [x] Withdraw `/withdraw`. `(feat(ui): withdraw)`
 - [ ] Privacy + Terms — real copy. `(feat(ui): legal pages)`
 
 **D4 · Polish & land**
