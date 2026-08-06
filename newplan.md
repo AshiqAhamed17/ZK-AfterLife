@@ -205,7 +205,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Privacy + Terms — real copy. `(feat(ui): legal pages)`
 **D4 · Polish & land**
 - [x] Remove remaining `GlassCard` translucency, gradient classes, and all emoji. `(refactor(ui): strip legacy styles)`
-- [ ] Motion / reduced-motion / responsive (≤360px) / focus-state pass. `(polish(ui): a11y + motion)`
+- [x] Motion / reduced-motion / responsive (≤360px) / focus-state pass. `(polish(ui): a11y + motion)`
 - [ ] Screenshot review vs `design.md`; "remove one accessory" per screen. `(polish(ui): restraint pass)`
 - **Done when:** every page matches `design.md`, `/styleguide` is complete, a11y floor met → merge `design-system` → `main`.
 

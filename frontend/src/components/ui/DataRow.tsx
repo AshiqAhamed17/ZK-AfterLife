@@ -39,7 +39,7 @@ export default function DataRow({
 
   return (
     <div
-      className={`flex items-center justify-between gap-4 border-b border-hairline py-3 last:border-b-0 ${className}`}
+      className={`flex flex-col gap-1 border-b border-hairline py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${className}`}
     >
       <span className="t-label">{label}</span>
       {canCopy ? (
