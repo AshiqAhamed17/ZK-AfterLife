@@ -202,7 +202,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Veto `/veto`. `(feat(ui): veto)`
 - [x] Claims `/claims`. `(feat(ui): claims)`
 - [x] Withdraw `/withdraw`. `(feat(ui): withdraw)`
-- [ ] Privacy + Terms — real copy. `(feat(ui): legal pages)`
+- [x] Privacy + Terms — real copy. `(feat(ui): legal pages)`
 
 **D4 · Polish & land**
 - [ ] Remove remaining `GlassCard` translucency, gradient classes, and all emoji. `(refactor(ui): strip legacy styles)`
