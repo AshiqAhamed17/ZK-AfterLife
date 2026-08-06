@@ -175,7 +175,7 @@ wire real on-chain verification, single hardcoded→env address config.
 
 ---
 
-### Phase D — Design system & UI redesign  ·  branch `design-system`
+### Phase D — Design system & UI redesign  ·  branch `design-system` - Use sonnet 5
 Follows `design.md` §10 build order. Each box = one commit.
 
 **D1 · Foundation** ✅ DONE
@@ -200,7 +200,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Register `/register` — stepper flow reskin. `(feat(ui): register)`
 - [x] Execute `/execute`. `(feat(ui): execute)`
 - [x] Veto `/veto`. `(feat(ui): veto)`
-- [ ] Claims `/claims`. `(feat(ui): claims)`
+- [x] Claims `/claims`. `(feat(ui): claims)`
 - [ ] Withdraw `/withdraw`. `(feat(ui): withdraw)`
 - [ ] Privacy + Terms — real copy. `(feat(ui): legal pages)`
 
@@ -212,20 +212,20 @@ Follows `design.md` §10 build order. Each box = one commit.
 
 ---
 
-### Phase 1a — Circuit hardening  ·  branch `phase-1a-circuit`
+### Phase 1a — Circuit hardening  ·  branch `phase-1a-circuit` - Use sonnet 5
 - [ ] Remove `println`; drop unused `trees` dep. `(chore(circuit): cleanup)`
 - [ ] Freeze the 5 public inputs; document the witness format. `(docs(circuit): io spec)`
 - [ ] Add `nargo test` cases (valid; wrong sum; wrong root; out-of-bounds count). `(test(circuit))`
 - [ ] Recompile; sync artifact to `frontend/public/circuits/`. `(build(circuit): artifact)`
 - **Done when:** `nargo test` passes; artifact regenerated.
 
-### Phase 1b — Real on-chain verification  ·  branch `phase-1b-verifier`
+### Phase 1b — Real on-chain verification  ·  branch `phase-1b-verifier` - Use opus 4.8
 - [ ] Generate `HonkVerifier.sol` via `bb write_vk` + `bb contract`. `(feat(contracts): HonkVerifier)`
 - [ ] Replace `WillVerifier` stub; wire the 5 public inputs. `(feat(contracts): real verify)`
 - [ ] Foundry test: real proof fixture verifies; tampered proof reverts. `(test(contracts): verifier)`
 - **Done when:** a real Noir proof verifies on-chain in a Foundry test.
 
-### Phase 1c — Registry + real distribution  ·  branch `phase-1c-registry`
+### Phase 1c — Registry + real distribution  ·  branch `phase-1c-registry` - Use Opus 4.8
 - [ ] `InheritanceRegistry.sol`: register (Self-gated, deposit = totals). `(feat(contracts): registry register)`
 - [ ] Execute (verify proof, Heartbeat-aware grace gate). `(feat(contracts): registry execute)`
 - [ ] Claim: per-beneficiary Merkle-inclusion → real ETH + ERC20 transfer. `(feat(contracts): registry claim)`
@@ -233,7 +233,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [ ] Foundry lifecycle test (register→lapse→grace→veto→execute→claim) + access/reentrancy/double-claim. `(test(contracts): lifecycle)`
 - **Done when:** end-to-end Foundry test moves real funds to the right beneficiaries.
 
-### Phase 1d — Frontend made real  ·  branch `phase-1d-frontend`
+### Phase 1d — Frontend made real  ·  branch `phase-1d-frontend` - Use sonnet 5
 - [ ] Remove mock fallbacks in `noirService`; fail loudly. `(fix(frontend): no mock proofs)`
 - [ ] Fix commitment to Poseidon everywhere (register + withdraw). `(fix(frontend): poseidon commitment)`
 - [ ] Real on-chain verify in `onChainVerifier` (uncomment `readContract`). `(feat(frontend): onchain verify)`
@@ -241,7 +241,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [ ] E2E in-browser vs testnet: register → prove → verify → claim. `(test(frontend): e2e)`
 - **Done when:** the deployed app performs a real end-to-end will with real proofs.
 
-### Phase 1e — Deploy + polish  ·  branch `phase-1e-deploy`
+### Phase 1e — Deploy + polish  ·  branch `phase-1e-deploy` - Use sonnet 5
 - [ ] Deploy to Sepolia. `(chore(deploy): sepolia)`
 - [ ] Deploy to zkSync Era Sepolia. `(chore(deploy): zksync)`
 - [ ] Deploy to Polygon zkEVM Cardona. `(chore(deploy): polygon)`
@@ -249,7 +249,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [ ] Architecture diagram + threat-model doc + demo video + README refresh. `(docs: v1)`
 - **Done when:** anyone can open the live app and complete a real will. **This is V1.**
 
-### Phase 2 — Aztec track (post-V1, the differentiator)  ·  branch `phase-2-aztec`
+### Phase 2 — Aztec track (post-V1, the differentiator)  ·  branch `phase-2-aztec` - Use Opus 4.8
 - [ ] `aztec/` Aztec.nr workspace scaffold. `(feat(aztec): scaffold)`
 - [ ] Private-note share model + private distribution. `(feat(aztec): private execution)`
 - [ ] L1 portal contract for real inactivity → L2 messaging. `(feat(aztec): l1 portal)`
