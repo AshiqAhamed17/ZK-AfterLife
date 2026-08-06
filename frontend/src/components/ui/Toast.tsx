@@ -3,12 +3,13 @@ import { createContext, useCallback, useContext, useState } from "react";
 
 // Toast (design.md §6): bottom-center, surface-2, hairline, mono label, status
 // dot, auto 4s. Use `useToast()` anywhere under <ToastProvider>.
-export type ToastTone = "default" | "alive" | "danger" | "seal";
+export type ToastTone = "default" | "alive" | "grace" | "danger" | "seal";
 type ToastItem = { id: number; message: string; tone: ToastTone };
 
 const DOT: Record<ToastTone, string> = {
   default: "bg-ink-muted",
   alive: "bg-alive",
+  grace: "bg-grace",
   danger: "bg-danger",
   seal: "bg-seal",
 };

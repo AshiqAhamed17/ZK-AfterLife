@@ -198,8 +198,8 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Dashboard `/app` — Pulse hero + stat tiles + sealed will. `(feat(ui): dashboard)`
 - [x] Check-in `/checkin` — Pulse + countdown + single action. `(feat(ui): checkin)`
 - [x] Register `/register` — stepper flow reskin. `(feat(ui): register)`
-- [ ] Execute `/execute`. `(feat(ui): execute)`
-- [ ] Veto `/veto`. `(feat(ui): veto)`
+- [x] Execute `/execute`. `(feat(ui): execute)`
+- [x] Veto `/veto`. `(feat(ui): veto)`
 - [ ] Claims `/claims`. `(feat(ui): claims)`
 - [ ] Withdraw `/withdraw`. `(feat(ui): withdraw)`
 - [ ] Privacy + Terms — real copy. `(feat(ui): legal pages)`
