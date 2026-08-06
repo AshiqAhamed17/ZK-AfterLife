@@ -149,51 +149,110 @@ wire real on-chain verification, single hardcoded→env address config.
 ## 4. Phased Roadmap & Milestones
 
 > Time is open-ended; sequence is what matters. Each milestone ends in something
-> demoable and committed.
+> demoable and committed. **Convention: every unchecked box below is one
+> commit-sized task** (roughly one focused commit). Suggested commit prefix in
+> `(...)`. Branch strategy in §4.0.
 
-### Phase 0 — Cleanup & foundation
-- [ ] Delete dropped code (§2): `backend/`, ZK-PDF frontend, dead components/services, stale docs.
-- [ ] Restructure repo into a clean monorepo; single source of truth for addresses (env-driven config, remove committed RPC keys → rotate them).
-- [ ] Rewrite `README.md` honestly (placeholder is fine until V1 lands).
-- **Done when:** repo builds, no dead imports, no secrets in source, one clean structure.
+### 4.0 Sequencing & branches
 
-### Phase 1a — Circuit hardening
-- [ ] Remove `println`, drop unused `trees` dep.
-- [ ] Freeze the 5 public inputs; document the witness format.
-- [ ] Add `nargo test` cases (valid will, wrong sum rejected, wrong root rejected, out-of-bounds count rejected).
-- [ ] Recompile; sync artifact to `frontend/public/circuits/`.
+- **Phase 0 — done** (merged to `main`, PR #3).
+- **Phase D — Design system & full UI redesign — current focus.** Branch
+  `design-system`. Do this now while ZK work is paused: it's the highest-visibility
+  portfolio win, and the design *foundation* (tokens, styleguide, primitives, chrome)
+  is pure presentation that Phase 1 cannot invalidate. See `design.md` for the spec.
+- **Phase 1 (a–e) — resumes after design.** The reskin touches `register`,
+  `execute`, `claims` as **presentation only**; Phase 1d then layers the real logic
+  (commitment fix, real verification, real Self) onto those already-styled pages — a
+  small, expected re-touch, not rework.
+- Work `design-system` as an integration branch; land tasks as small commits (or
+  sub-PRs), then one `design-system → main` merge when the reskin is coherent.
+
+### Phase 0 — Cleanup & foundation ✅ DONE
+- [x] Delete dropped code (`backend/`, ZK-PDF frontend, dead components/services, stale docs).
+- [x] Env-driven address/RPC config; removed committed RPC keys (⚠ still rotate the old keys).
+- [x] Honest `README.md`; added `context.md` + `newplan.md`.
+- **Done:** frontend builds clean (14/14 pages), no dead imports, no secrets in source.
+
+---
+
+### Phase D — Design system & UI redesign  ·  branch `design-system` - Use sonnet 5
+Follows `design.md` §10 build order. Each box = one commit.
+
+**D1 · Foundation** ✅ DONE
+- [x] Design spec `design.md` committed. `(docs(design))`
+- [x] Wire §4 tokens into Tailwind v4 `@theme` in `globals.css` (color, radius, fonts; dark-only). `(feat(ui): design tokens)`
+- [x] Load fonts: Fraunces (serif) via next/font, Geist Sans/Mono via geist pkg; `--font-*` set. `(feat(ui): fonts)`
+- [x] Add `/styleguide` route rendering every token + the full type scale. `(feat(ui): styleguide route)`
+
+**D2 · Primitives** (each its own commit)
+- [x] `Button` (primary/secondary/ghost/destructive) + focus ring. `(feat(ui): Button)`
+- [x] `Field` (label/input/validation) + `StatusBadge`. `(feat(ui): Field + StatusBadge)`
+- [x] `VaultCard` + `DataRow` (truncated address, click-to-copy) + `StatTile`. `(feat(ui): card primitives)`
+- [x] **Signature:** `Pulse` (alive/grace/flat states, reduced-motion). `(feat(ui): Pulse)`
+- [x] **Signature:** `Commitment` (sealed ↔ resolved redaction reveal). `(feat(ui): Commitment)`
+- [x] `Stepper` + `Modal` + `Toast`. `(feat(ui): flow primitives)` — **D2 complete**
+
+**D3 · Page reskins** (one commit per page; presentation only — no tx-logic changes)
+- [x] Global chrome: `Header` (wordmark + Pulse chip + wallet) + `Footer`. `(feat(ui): chrome)`
+- [x] Landing `/` — cinematic hero, serif headline, numbered sequence. `(feat(ui): landing)`
+- [x] Dashboard `/app` — Pulse hero + stat tiles + sealed will. `(feat(ui): dashboard)`
+- [x] Check-in `/checkin` — Pulse + countdown + single action. `(feat(ui): checkin)`
+- [x] Register `/register` — stepper flow reskin. `(feat(ui): register)`
+- [x] Execute `/execute`. `(feat(ui): execute)`
+- [x] Veto `/veto`. `(feat(ui): veto)`
+- [x] Claims `/claims`. `(feat(ui): claims)`
+- [x] Withdraw `/withdraw`. `(feat(ui): withdraw)`
+- [x] Privacy + Terms — real copy. `(feat(ui): legal pages)`
+**D4 · Polish & land**
+- [x] Remove remaining `GlassCard` translucency, gradient classes, and all emoji. `(refactor(ui): strip legacy styles)`
+- [x] Motion / reduced-motion / responsive (≤360px) / focus-state pass. `(polish(ui): a11y + motion)`
+- [x] Screenshot review vs `design.md`; "remove one accessory" per screen. `(polish(ui): restraint pass)`
+- **Done when:** every page matches `design.md`, `/styleguide` is complete, a11y floor met → merge `design-system` → `main`.
+
+---
+
+### Phase 1a — Circuit hardening  ·  branch `phase-1a-circuit` - Use sonnet 5
+- [ ] Remove `println`; drop unused `trees` dep. `(chore(circuit): cleanup)`
+- [ ] Freeze the 5 public inputs; document the witness format. `(docs(circuit): io spec)`
+- [ ] Add `nargo test` cases (valid; wrong sum; wrong root; out-of-bounds count). `(test(circuit))`
+- [ ] Recompile; sync artifact to `frontend/public/circuits/`. `(build(circuit): artifact)`
 - **Done when:** `nargo test` passes; artifact regenerated.
 
-### Phase 1b — Real on-chain verification
-- [ ] `bb write_vk` + `bb contract` → `HonkVerifier.sol`.
-- [ ] Replace `WillVerifier` stub; wire the 5 public inputs correctly.
-- [ ] Foundry test: a real proof (fixture) verifies; a tampered proof reverts.
+### Phase 1b — Real on-chain verification  ·  branch `phase-1b-verifier` - Use opus 4.8
+- [ ] Generate `HonkVerifier.sol` via `bb write_vk` + `bb contract`. `(feat(contracts): HonkVerifier)`
+- [ ] Replace `WillVerifier` stub; wire the 5 public inputs. `(feat(contracts): real verify)`
+- [ ] Foundry test: real proof fixture verifies; tampered proof reverts. `(test(contracts): verifier)`
 - **Done when:** a real Noir proof verifies on-chain in a Foundry test.
 
-### Phase 1c — Registry + real distribution
-- [ ] Build `InheritanceRegistry.sol` (register / execute / claim), Self-gated, Heartbeat-aware.
-- [ ] Real ETH + ERC20 transfers via per-beneficiary Merkle-inclusion claims.
-- [ ] Collapse the redundant contracts.
-- [ ] Foundry tests: full lifecycle (register → checkin lapse → grace → veto path → execute → claim), balance assertions, access control, reentrancy, double-claim prevention.
+### Phase 1c — Registry + real distribution  ·  branch `phase-1c-registry` - Use Opus 4.8
+- [ ] `InheritanceRegistry.sol`: register (Self-gated, deposit = totals). `(feat(contracts): registry register)`
+- [ ] Execute (verify proof, Heartbeat-aware grace gate). `(feat(contracts): registry execute)`
+- [ ] Claim: per-beneficiary Merkle-inclusion → real ETH + ERC20 transfer. `(feat(contracts): registry claim)`
+- [ ] Delete redundant contracts (`NoirIntegration`/`AztecExecutor`/`L1AztecBridge`/`WillExecutor`). `(refactor(contracts): collapse)`
+- [ ] Foundry lifecycle test (register→lapse→grace→veto→execute→claim) + access/reentrancy/double-claim. `(test(contracts): lifecycle)`
 - **Done when:** end-to-end Foundry test moves real funds to the right beneficiaries.
 
-### Phase 1d — Frontend made real
-- [ ] Remove mock fallbacks in `noirService`; fail loudly instead of faking.
-- [ ] Real Self verification (on-chain read; delete `setTimeout` fake).
-- [ ] Fix commitment to Poseidon everywhere; wire real on-chain verify in `onChainVerifier`.
-- [ ] End-to-end in-browser: register → prove → verify → claim against a testnet.
+### Phase 1d — Frontend made real  ·  branch `phase-1d-frontend` - Use sonnet 5
+- [ ] Remove mock fallbacks in `noirService`; fail loudly. `(fix(frontend): no mock proofs)`
+- [ ] Fix commitment to Poseidon everywhere (register + withdraw). `(fix(frontend): poseidon commitment)`
+- [ ] Real on-chain verify in `onChainVerifier` (uncomment `readContract`). `(feat(frontend): onchain verify)`
+- [ ] Real Self verification (on-chain read; delete `setTimeout` fake). `(feat(frontend): real self)`
+- [ ] E2E in-browser vs testnet: register → prove → verify → claim. `(test(frontend): e2e)`
 - **Done when:** the deployed app performs a real end-to-end will with real proofs.
 
-### Phase 1e — Deploy + polish
-- [ ] Deploy to Sepolia + zkSync Era Sepolia + Polygon zkEVM Cardona.
-- [ ] Live hosted frontend (Vercel) pointed at a default testnet.
-- [ ] Architecture diagram, threat-model doc, demo video, honest README.
+### Phase 1e — Deploy + polish  ·  branch `phase-1e-deploy` - Use sonnet 5
+- [ ] Deploy to Sepolia. `(chore(deploy): sepolia)`
+- [ ] Deploy to zkSync Era Sepolia. `(chore(deploy): zksync)`
+- [ ] Deploy to Polygon zkEVM Cardona. `(chore(deploy): polygon)`
+- [ ] Live hosted frontend (Vercel) on a default testnet. `(chore(deploy): vercel)`
+- [ ] Architecture diagram + threat-model doc + demo video + README refresh. `(docs: v1)`
 - **Done when:** anyone can open the live app and complete a real will. **This is V1.**
 
-### Phase 2 — Aztec track (post-V1, the differentiator)
-- [ ] `aztec/` Aztec.nr workspace; private-note share model; private distribution.
-- [ ] L1 portal contract for real inactivity → L2 messaging.
-- [ ] Sandbox/PXE docs; a private-execution demo.
+### Phase 2 — Aztec track (post-V1, the differentiator)  ·  branch `phase-2-aztec` - Use Opus 4.8
+- [ ] `aztec/` Aztec.nr workspace scaffold. `(feat(aztec): scaffold)`
+- [ ] Private-note share model + private distribution. `(feat(aztec): private execution)`
+- [ ] L1 portal contract for real inactivity → L2 messaging. `(feat(aztec): l1 portal)`
+- [ ] Sandbox/PXE docs + private-execution demo. `(docs(aztec): demo)`
 - **Done when:** individual payouts are provably hidden on Aztec.
 
 ---
