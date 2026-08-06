@@ -1,4 +1,3 @@
-import ClientThemeProvider from "@/components/ClientThemeProvider";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -34,15 +33,13 @@ export default function RootLayout({
       className={`${fraunces.variable} ${GeistSans.variable} ${GeistMono.variable}`}
     >
       <body className="antialiased">
-        <ClientThemeProvider>
-          <WalletProvider>
-            <ToastProvider>
-              <Header />
-              <div className="min-h-[calc(100vh-56px)]">{children}</div>
-              <Footer />
-            </ToastProvider>
-          </WalletProvider>
-        </ClientThemeProvider>
+        <WalletProvider>
+          <ToastProvider>
+            <Header />
+            <div className="min-h-[calc(100vh-56px)]">{children}</div>
+            <Footer />
+          </ToastProvider>
+        </WalletProvider>
       </body>
     </html>
   );
