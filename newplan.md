@@ -203,7 +203,6 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Claims `/claims`. `(feat(ui): claims)`
 - [x] Withdraw `/withdraw`. `(feat(ui): withdraw)`
 - [x] Privacy + Terms — real copy. `(feat(ui): legal pages)`
-
 **D4 · Polish & land**
 - [ ] Remove remaining `GlassCard` translucency, gradient classes, and all emoji. `(refactor(ui): strip legacy styles)`
 - [ ] Motion / reduced-motion / responsive (≤360px) / focus-state pass. `(polish(ui): a11y + motion)`
