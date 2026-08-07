@@ -243,7 +243,7 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
         uint256 totalEth,
         uint256 totalUsdc,
         uint256 totalNftCount,
-        WillVerifier.Proof memory proof
+        bytes calldata proof
     ) internal {
         // Check if will is registered
         if (!registeredWills[willCommitment].exists) revert WillNotRegistered();
@@ -251,7 +251,8 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
         // Check if will is already executed
         if (executedWills[willCommitment]) revert WillAlreadyExecuted();
 
-        // Verify the ZK proof
+        // Verify the ZK proof against the will's 5 public inputs (real UltraHonk
+        // verification via WillVerifier -> HonkVerifier).
         bool isValid = verifier.verifyWillProof(
             proof,
             uint256(willCommitment),
@@ -302,7 +303,7 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
         uint256 totalEth,
         uint256 totalUsdc,
         uint256 totalNftCount,
-        WillVerifier.Proof memory proof
+        bytes calldata proof
     ) external whenNotPaused nonReentrant {
         _executeWillInternal(
             willCommitment,
@@ -330,7 +331,7 @@ contract WillExecutor is Ownable, Pausable, ReentrancyGuard {
         uint256 totalEth,
         uint256 totalUsdc,
         uint256 totalNftCount,
-        WillVerifier.Proof memory proof
+        bytes calldata proof
     ) external whenNotPaused nonReentrant {
         // Check heartbeat finalization (this would require L1Heartbeat integration)
         // For now, we'll implement a simplified check

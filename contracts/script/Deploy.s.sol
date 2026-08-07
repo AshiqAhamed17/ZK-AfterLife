@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 import "../src/L1Heartbeat.sol";
 import "../src/AztecExecutor.sol";
 import "../src/L1AztecBridge.sol";
+import "../src/HonkVerifier.sol";
 import "../src/WillVerifier.sol";
 import "../src/WillExecutor.sol";
 import "../src/NoirIntegration.sol";
@@ -81,9 +82,11 @@ contract DeployScript is Script {
         AztecExecutor aztecExecutor = new AztecExecutor(MIN_EXECUTION_DELAY);
         console.log("AztecExecutor deployed at:", address(aztecExecutor));
 
-        // 3. Deploy WillVerifier contract
-        console.log("\n3. Deploying WillVerifier...");
-        WillVerifier willVerifier = new WillVerifier();
+        // 3. Deploy the real UltraHonk verifier + the will-semantics adapter
+        console.log("\n3. Deploying HonkVerifier + WillVerifier...");
+        HonkVerifier honkVerifier = new HonkVerifier();
+        console.log("HonkVerifier deployed at:", address(honkVerifier));
+        WillVerifier willVerifier = new WillVerifier(address(honkVerifier));
         console.log("WillVerifier deployed at:", address(willVerifier));
 
         // 4. Deploy WillExecutor contract
@@ -129,6 +132,7 @@ contract DeployScript is Script {
         console.log("Network:", vm.envString("NETWORK"));
         console.log("L1Heartbeat:", address(l1Heartbeat));
         console.log("AztecExecutor:", address(aztecExecutor));
+        console.log("HonkVerifier:", address(honkVerifier));
         console.log("WillVerifier:", address(willVerifier));
         console.log("WillExecutor:", address(willExecutor));
         console.log("L1AztecBridge:", address(l1AztecBridge));
@@ -147,6 +151,7 @@ contract DeployScript is Script {
         console.log("\nContract addresses for frontend config:");
         console.log("L1Heartbeat:", address(l1Heartbeat));
         console.log("AztecExecutor:", address(aztecExecutor));
+        console.log("HonkVerifier:", address(honkVerifier));
         console.log("WillVerifier:", address(willVerifier));
         console.log("WillExecutor:", address(willExecutor));
         console.log("L1AztecBridge:", address(l1AztecBridge));
