@@ -61,6 +61,34 @@ None of this information is revealed during verification.
 
 ---
 
+## Frozen Interface
+
+The public input order and the private witness order below are **frozen** —
+both are load-bearing for downstream consumers and must not be reordered
+without updating all of them together:
+
+- The Phase 1b `HonkVerifier.sol` wiring (on-chain `uint256[5]` interface).
+- `frontend/src/services/noirService.ts`.
+- Every `Prover.toml`.
+
+**Public inputs (5, positional order):**
+
+1. `will_commitment`
+2. `merkle_root`
+3. `total_eth`
+4. `total_usdc`
+5. `total_nft_count`
+
+**Private witness (positional order):**
+
+`will_salt`, `will_data[4]`, `beneficiary_count`, `beneficiary_addresses[8]`,
+`beneficiary_eth[8]`, `beneficiary_usdc[8]`, `beneficiary_nfts[8]`.
+
+Age/humanity gating is handled off-circuit by Self Protocol — it is not part
+of this circuit's interface.
+
+---
+
 ## Circuit Constraints
 
 ### 1. Will Commitment Verification
@@ -115,11 +143,16 @@ The circuit favors transparency and auditability over dynamic flexibility.
 
 ## Testing
 
-The circuit includes unit tests that:
+Run with `nargo test`. Six cases cover the trust-critical paths:
 
-- Compute correct will commitments and Merkle roots.
-- Validate a known-good will configuration.
-- Assert that incorrect allocations or commitments cause failures.
+| Test | Verifies |
+|---|---|
+| `test_valid_will` | A well-formed will passes. |
+| `test_wrong_commitment_fails` | A corrupted `will_commitment` is rejected. |
+| `test_wrong_sum_fails` | A declared total that doesn't match the beneficiary sum is rejected. |
+| `test_wrong_root_fails` | A corrupted `merkle_root` is rejected. |
+| `test_out_of_bounds_count_fails` | `beneficiary_count > 8` is rejected. |
+| `test_zero_count_fails` | `beneficiary_count == 0` is rejected. |
 
 These tests serve as executable documentation for expected behavior.
 

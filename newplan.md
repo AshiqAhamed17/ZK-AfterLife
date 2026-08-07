@@ -211,12 +211,12 @@ Follows `design.md` §10 build order. Each box = one commit.
 
 ---
 
-### Phase 1a — Circuit hardening  ·  branch `phase-1a-circuit` - Use sonnet 5
-- [ ] Remove `println`; drop unused `trees` dep. `(chore(circuit): cleanup)`
-- [ ] Freeze the 5 public inputs; document the witness format. `(docs(circuit): io spec)`
-- [ ] Add `nargo test` cases (valid; wrong sum; wrong root; out-of-bounds count). `(test(circuit))`
-- [ ] Recompile; sync artifact to `frontend/public/circuits/`. `(build(circuit): artifact)`
-- **Done when:** `nargo test` passes; artifact regenerated.
+### Phase 1a — Circuit hardening  ·  branch `phase-1a-circuit` - Use sonnet 5 — done on `main`
+- [x] Remove `println`; drop unused `trees` dep. `(chore(circuit): cleanup)`
+- [x] Freeze the 5 public inputs; document the witness format. `(docs(circuit): io spec)`
+- [x] Add `nargo test` cases (valid; wrong sum; wrong root; out-of-bounds count). `(test(circuit))`
+- [x] Recompile; sync artifact to `frontend/public/circuits/`. `(build(circuit): artifact)`
+- **Done when:** `nargo test` passes; artifact regenerated. ✅ 6/6 tests pass; artifact resynced.
 
 ### Phase 1b — Real on-chain verification  ·  branch `phase-1b-verifier` - Use opus 4.8
 - [ ] Generate `HonkVerifier.sol` via `bb write_vk` + `bb contract`. `(feat(contracts): HonkVerifier)`
