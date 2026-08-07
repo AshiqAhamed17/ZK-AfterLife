@@ -221,8 +221,8 @@ Follows `design.md` §10 build order. Each box = one commit.
 ### Phase 1b — Real on-chain verification  ·  branch `phase-1b-verifier` - Use opus 4.8 — done on `main`
 - [x] Generate `HonkVerifier.sol` via `bb write_vk` + `bb contract`. `(feat(contracts): HonkVerifier)` — bb 5.1.0 `write_vk` + `write_solidity_verifier`, EVM/keccak/ZK UltraHonk; verifies 5 public inputs (8 pairing pts ride in proof); off-chain prove→verify roundtrip passes; forge build clean.
 - [x] Replace `WillVerifier` stub; wire the 5 public inputs. `(feat(contracts): real verify)` — WillVerifier is now a thin real adapter over HonkVerifier (bytes proof + uint256[5] → bytes32[5]); WillExecutor + Deploy.s.sol rewired to bytes proofs.
-- [ ] Foundry test: real proof fixture verifies; tampered proof reverts. `(test(contracts): verifier)`
-- **Done when:** a real Noir proof verifies on-chain in a Foundry test.
+- [x] Foundry test: real proof fixture verifies; tampered proof reverts. `(test(contracts): verifier)` — 7/7 pass: real bb proof verifies (~2.99M gas); wrong public input, tampered proof, out-of-field input, and zero-addr all revert.
+- **Done when:** a real Noir proof verifies on-chain in a Foundry test. ✅
 
 ### Phase 1c — Registry + real distribution  ·  branch `phase-1c-registry` - Use Opus 4.8
 - [ ] `InheritanceRegistry.sol`: register (Self-gated, deposit = totals). `(feat(contracts): registry register)`
