@@ -218,8 +218,8 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Recompile; sync artifact to `frontend/public/circuits/`. `(build(circuit): artifact)`
 - **Done when:** `nargo test` passes; artifact regenerated. ✅ 6/6 tests pass; artifact resynced.
 
-### Phase 1b — Real on-chain verification  ·  branch `phase-1b-verifier` - Use opus 4.8
-- [ ] Generate `HonkVerifier.sol` via `bb write_vk` + `bb contract`. `(feat(contracts): HonkVerifier)`
+### Phase 1b — Real on-chain verification  ·  branch `phase-1b-verifier` - Use opus 4.8 — done on `main`
+- [x] Generate `HonkVerifier.sol` via `bb write_vk` + `bb contract`. `(feat(contracts): HonkVerifier)` — bb 5.1.0 `write_vk` + `write_solidity_verifier`, EVM/keccak/ZK UltraHonk; verifies 5 public inputs (8 pairing pts ride in proof); off-chain prove→verify roundtrip passes; forge build clean.
 - [ ] Replace `WillVerifier` stub; wire the 5 public inputs. `(feat(contracts): real verify)`
 - [ ] Foundry test: real proof fixture verifies; tampered proof reverts. `(test(contracts): verifier)`
 - **Done when:** a real Noir proof verifies on-chain in a Foundry test.
