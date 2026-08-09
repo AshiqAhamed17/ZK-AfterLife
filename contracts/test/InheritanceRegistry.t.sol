@@ -9,6 +9,8 @@ import {MockUSDC} from "./mocks/MockUSDC.sol";
 import {MockSelfVerifier} from "./mocks/MockSelfVerifier.sol";
 import {PoseidonDeployer} from "../src/PoseidonDeployer.sol";
 import {IPoseidonT3, IPoseidonT5} from "../src/interfaces/IPoseidon.sol";
+import {MockWillVerifier} from "./mocks/MockWillVerifier.sol";
+import {ReentrantBeneficiary} from "./mocks/ReentrantBeneficiary.sol";
 
 /**
  * @title InheritanceRegistryTest
@@ -547,5 +549,102 @@ contract InheritanceRegistryTest is Test {
         vm.prank(address(1000));
         vm.expectRevert(InheritanceRegistry.InvalidLeafIndex.selector);
         registry.claim(fxCommitment, 4, 400, 8, [bh[1], l1[1], l2[1]]); // index >= 8
+    }
+
+    //////////////// FULL LIFECYCLE ////////////////
+
+    /// The whole narrative on one will with the real proof:
+    /// register -> check-in -> lapse -> grace -> execute -> claim.
+    function test_FullLifecycle() public {
+        // register
+        _registerFixtureWill();
+        assertTrue(registry.getWill(fxCommitment).exists, "registered");
+        assertFalse(registry.getWill(fxCommitment).executed, "not yet executed");
+
+        // owner proves liveness, then goes inactive
+        vm.prank(owner);
+        registry.checkIn(fxCommitment);
+
+        // cannot open grace while still active
+        vm.expectRevert(InheritanceRegistry.StillActive.selector);
+        registry.triggerGracePeriod(fxCommitment);
+
+        // lapse past the inactivity window -> anyone opens grace
+        vm.warp(block.timestamp + INACTIVITY + 1);
+        registry.triggerGracePeriod(fxCommitment);
+        assertTrue(registry.getWill(fxCommitment).graceStart != 0, "grace open");
+
+        // grace elapses with no veto -> execute with the real proof
+        vm.warp(block.timestamp + GRACE + 1);
+        registry.executeWill(fxCommitment, proof);
+        assertTrue(registry.getWill(fxCommitment).executed, "executed");
+
+        // a beneficiary claims their exact share
+        (bytes32[8] memory bh, bytes32[4] memory l1, bytes32[2] memory l2, ) = _buildTree();
+        vm.prank(address(1000));
+        registry.claim(fxCommitment, 4, 400, 0, [bh[1], l1[1], l2[1]]);
+        assertEq(address(1000).balance, 4, "beneficiary paid ETH");
+        assertEq(usdc.balanceOf(address(1000)), 400, "beneficiary paid USDC");
+    }
+
+    //////////////// REENTRANCY ////////////////
+
+    /// A malicious contract beneficiary that re-enters claim on ETH receipt
+    /// cannot double-claim. Uses a mock verifier so an arbitrary tree (with the
+    /// attacker's address) can be executed without a real proof.
+    function test_ClaimReentrancyIsBlocked() public {
+        MockWillVerifier mockVerifier = new MockWillVerifier();
+        address[] memory members = new address[](1);
+        members[0] = alice;
+        InheritanceRegistry reg = new InheritanceRegistry(
+            address(mockVerifier),
+            address(self),
+            address(usdc),
+            address(poseidonT3),
+            address(poseidonT5),
+            INACTIVITY,
+            GRACE,
+            members,
+            1
+        );
+
+        ReentrantBeneficiary attacker = new ReentrantBeneficiary();
+
+        // Single-beneficiary tree: slot 0 = attacker, 4 wei + 400 usdc.
+        bytes32 leafA = _leaf(uint256(uint160(address(attacker))), 4, 400);
+        bytes32[8] memory bh;
+        bh[0] = leafA; // bh[1..7] = 0
+        bytes32[4] memory l1;
+        for (uint256 i = 0; i < 4; i++) l1[i] = _h2(bh[2 * i], bh[2 * i + 1]);
+        bytes32 rootL2a = _h2(l1[0], l1[1]);
+        bytes32 rootL2b = _h2(l1[2], l1[3]);
+        uint256 root = uint256(_h2(rootL2a, rootL2b));
+        bytes32[3] memory siblings = [bytes32(0), l1[1], rootL2b];
+
+        bytes32 commitment = bytes32(uint256(0xDEAD));
+
+        // register (owner deposits the escrow) + execute (mock verifier -> true)
+        vm.startPrank(owner);
+        usdc.approve(address(reg), 400);
+        reg.register{value: 4}(commitment, root, 4, 400, 0);
+        vm.stopPrank();
+        vm.warp(block.timestamp + INACTIVITY + 1);
+        reg.triggerGracePeriod(commitment);
+        vm.warp(block.timestamp + GRACE + 1);
+        reg.executeWill(commitment, "");
+
+        // attacker claims; its receive() re-enters and is blocked.
+        attacker.configure(reg, commitment, 4, 400, 0, siblings);
+        attacker.attack();
+
+        assertTrue(attacker.reentered(), "reentrancy was attempted");
+        assertEq(address(attacker).balance, 4, "attacker got exactly one ETH share");
+        assertEq(usdc.balanceOf(address(attacker)), 400, "attacker got one USDC share");
+        assertEq(address(reg).balance, 0, "escrow drained once");
+        assertEq(usdc.balanceOf(address(reg)), 0, "usdc drained once");
+
+        // a further top-level claim is rejected outright
+        vm.expectRevert(InheritanceRegistry.AlreadyClaimed.selector);
+        attacker.attack();
     }
 }

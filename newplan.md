@@ -229,8 +229,8 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Execute (verify proof, Heartbeat-aware grace gate). `(feat(contracts): registry execute)` — checkIn/triggerGracePeriod/veto/executeWill; real UltraHonk proof verified on-chain via WillVerifier (~3.2M gas); veto-at-threshold cancels grace. 23 registry tests pass (30 total incl. verifier).
 - [x] Claim: per-beneficiary Merkle-inclusion → real ETH + ERC20 transfer. `(feat(contracts): registry claim)` — on-chain Poseidon (circomlibjs-generated, verified == noir) verifies inclusion against the ZK-proven merkleRoot; real ETH+USDC transfer, double-claim guarded. 38 tests pass incl. on-chain-tree==fixture-root + full drain.
 - [x] Delete redundant contracts (`NoirIntegration`/`AztecExecutor`/`L1AztecBridge`/`WillExecutor` + `L1Heartbeat`, absorbed into the registry). `(refactor(contracts): collapse)` — Deploy.s.sol rewritten for the registry stack; obsolete TestSelfIntegration script removed; PoseidonDeployer moved to src. Build + 38 tests green.
-- [ ] Foundry lifecycle test (register→lapse→grace→veto→execute→claim) + access/reentrancy/double-claim. `(test(contracts): lifecycle)`
-- **Done when:** end-to-end Foundry test moves real funds to the right beneficiaries.
+- [x] Foundry lifecycle test (register→lapse→grace→veto→execute→claim) + access/reentrancy/double-claim. `(test(contracts): lifecycle)` — test_FullLifecycle threads the whole narrative with the real proof; test_ClaimReentrancyIsBlocked proves the guard (attacker gets exactly one share). 40 tests total.
+- **Done when:** end-to-end Foundry test moves real funds to the right beneficiaries. ✅ register→execute(real proof)→claim drains escrow to the exact beneficiaries.
 
 ### Phase 1d — Frontend made real  ·  branch `phase-1d-frontend` - Use sonnet 5
 - [ ] Remove mock fallbacks in `noirService`; fail loudly. `(fix(frontend): no mock proofs)`
