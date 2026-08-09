@@ -99,6 +99,19 @@ contract InheritanceRegistry {
         uint256 totalEth,
         uint256 totalUsdc
     );
+    event CheckIn(bytes32 indexed willCommitment, uint256 timestamp);
+    event GraceStarted(
+        bytes32 indexed willCommitment,
+        uint256 startTime,
+        uint256 endTime
+    );
+    event GraceCancelled(bytes32 indexed willCommitment);
+    event Vetoed(
+        bytes32 indexed willCommitment,
+        address indexed member,
+        uint32 vetoCount
+    );
+    event WillExecuted(bytes32 indexed willCommitment, address indexed executor);
 
     ////////////// ERRORS //////////////
 
@@ -118,6 +131,18 @@ contract InheritanceRegistry {
     error NftsNotSupported();
     error EmptyWill();
     error EthDepositMismatch();
+
+    error WillNotRegistered();
+    error WillAlreadyExecuted();
+    error NotWillOwner();
+    error StillActive();
+    error GraceAlreadyActive();
+    error GraceNotStarted();
+    error GraceNotElapsed();
+    error GracePeriodOver();
+    error NotVetoMember();
+    error AlreadyVetoed();
+    error InvalidProof();
 
     ////////////// CONSTRUCTOR //////////////
 
@@ -205,6 +230,101 @@ contract InheritanceRegistry {
         }
 
         emit WillRegistered(willCommitment, msg.sender, totalEth, totalUsdc);
+    }
+
+    ////////////// LIFECYCLE + EXECUTE (box 2) //////////////
+
+    /// @notice Owner proves liveness; resets the inactivity clock and cancels
+    ///         any grace period in progress ("I'm still here").
+    function checkIn(bytes32 willCommitment) external {
+        Will storage w = wills[willCommitment];
+        if (!w.exists) revert WillNotRegistered();
+        if (w.executed) revert WillAlreadyExecuted();
+        if (msg.sender != w.owner) revert NotWillOwner();
+
+        w.lastCheckIn = uint64(block.timestamp);
+        if (w.graceStart != 0) {
+            w.graceStart = 0;
+            w.vetoCount = 0;
+            w.graceEpoch += 1;
+            emit GraceCancelled(willCommitment);
+        }
+        emit CheckIn(willCommitment, block.timestamp);
+    }
+
+    /// @notice Anyone may open the grace period once the owner has been inactive
+    ///         for `inactivityPeriod`.
+    function triggerGracePeriod(bytes32 willCommitment) external {
+        Will storage w = wills[willCommitment];
+        if (!w.exists) revert WillNotRegistered();
+        if (w.executed) revert WillAlreadyExecuted();
+        if (w.graceStart != 0) revert GraceAlreadyActive();
+        if (block.timestamp <= uint256(w.lastCheckIn) + inactivityPeriod) {
+            revert StillActive();
+        }
+
+        w.graceStart = uint64(block.timestamp);
+        emit GraceStarted(
+            willCommitment,
+            block.timestamp,
+            block.timestamp + gracePeriod
+        );
+    }
+
+    /// @notice A veto member blocks a premature execution during the grace
+    ///         window. Reaching `vetoThreshold` is treated as a confirmed false
+    ///         alarm: grace is cancelled and the inactivity clock restarts.
+    function veto(bytes32 willCommitment) external {
+        if (!isVetoMember[msg.sender]) revert NotVetoMember();
+        Will storage w = wills[willCommitment];
+        if (!w.exists) revert WillNotRegistered();
+        if (w.executed) revert WillAlreadyExecuted();
+        if (w.graceStart == 0) revert GraceNotStarted();
+        if (block.timestamp > uint256(w.graceStart) + gracePeriod) {
+            revert GracePeriodOver();
+        }
+        if (hasVetoed[willCommitment][w.graceEpoch][msg.sender]) {
+            revert AlreadyVetoed();
+        }
+
+        hasVetoed[willCommitment][w.graceEpoch][msg.sender] = true;
+        w.vetoCount += 1;
+        emit Vetoed(willCommitment, msg.sender, w.vetoCount);
+
+        if (w.vetoCount >= vetoThreshold) {
+            w.graceStart = 0;
+            w.vetoCount = 0;
+            w.graceEpoch += 1;
+            w.lastCheckIn = uint64(block.timestamp);
+            emit GraceCancelled(willCommitment);
+        }
+    }
+
+    /// @notice Execute a will after the grace period elapses with no threshold
+    ///         veto. Permissionless: the proof + stored public inputs are the
+    ///         authority, not the caller. Verifies a real UltraHonk proof and
+    ///         marks the will executable. Funds move at `claim` (box 3).
+    function executeWill(bytes32 willCommitment, bytes calldata proof) external {
+        Will storage w = wills[willCommitment];
+        if (!w.exists) revert WillNotRegistered();
+        if (w.executed) revert WillAlreadyExecuted();
+        if (w.graceStart == 0) revert GraceNotStarted();
+        if (block.timestamp <= uint256(w.graceStart) + gracePeriod) {
+            revert GraceNotElapsed();
+        }
+
+        bool ok = willVerifier.verifyWillProof(
+            proof,
+            uint256(willCommitment),
+            w.merkleRoot,
+            w.totalEth,
+            w.totalUsdc,
+            0 // total_nft_count is always 0 in V1 (enforced at register)
+        );
+        if (!ok) revert InvalidProof();
+
+        w.executed = true;
+        emit WillExecuted(willCommitment, msg.sender);
     }
 
     ////////////// VIEWS //////////////

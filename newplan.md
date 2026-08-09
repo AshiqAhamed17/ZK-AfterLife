@@ -226,7 +226,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 
 ### Phase 1c — Registry + real distribution  ·  branch `phase-1c-registry` - Use Opus 4.8
 - [x] `InheritanceRegistry.sol`: register (Self-gated, deposit = totals). `(feat(contracts): registry register)` — per-will lifecycle state + global veto committee; deposit==totals (ETH via msg.value, USDC via safeTransferFrom); NFTs rejected in V1. 11 register/constructor tests pass.
-- [ ] Execute (verify proof, Heartbeat-aware grace gate). `(feat(contracts): registry execute)`
+- [x] Execute (verify proof, Heartbeat-aware grace gate). `(feat(contracts): registry execute)` — checkIn/triggerGracePeriod/veto/executeWill; real UltraHonk proof verified on-chain via WillVerifier (~3.2M gas); veto-at-threshold cancels grace. 23 registry tests pass (30 total incl. verifier).
 - [ ] Claim: per-beneficiary Merkle-inclusion → real ETH + ERC20 transfer. `(feat(contracts): registry claim)`
 - [ ] Delete redundant contracts (`NoirIntegration`/`AztecExecutor`/`L1AztecBridge`/`WillExecutor`). `(refactor(contracts): collapse)`
 - [ ] Foundry lifecycle test (register→lapse→grace→veto→execute→claim) + access/reentrancy/double-claim. `(test(contracts): lifecycle)`
