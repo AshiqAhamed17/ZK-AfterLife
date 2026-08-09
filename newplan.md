@@ -225,7 +225,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - **Done when:** a real Noir proof verifies on-chain in a Foundry test. ✅
 
 ### Phase 1c — Registry + real distribution  ·  branch `phase-1c-registry` - Use Opus 4.8
-- [ ] `InheritanceRegistry.sol`: register (Self-gated, deposit = totals). `(feat(contracts): registry register)`
+- [x] `InheritanceRegistry.sol`: register (Self-gated, deposit = totals). `(feat(contracts): registry register)` — per-will lifecycle state + global veto committee; deposit==totals (ETH via msg.value, USDC via safeTransferFrom); NFTs rejected in V1. 11 register/constructor tests pass.
 - [ ] Execute (verify proof, Heartbeat-aware grace gate). `(feat(contracts): registry execute)`
 - [ ] Claim: per-beneficiary Merkle-inclusion → real ETH + ERC20 transfer. `(feat(contracts): registry claim)`
 - [ ] Delete redundant contracts (`NoirIntegration`/`AztecExecutor`/`L1AztecBridge`/`WillExecutor`). `(refactor(contracts): collapse)`
