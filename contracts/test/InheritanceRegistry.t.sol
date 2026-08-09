@@ -7,7 +7,7 @@ import {HonkVerifier} from "../src/HonkVerifier.sol";
 import {WillVerifier} from "../src/WillVerifier.sol";
 import {MockUSDC} from "./mocks/MockUSDC.sol";
 import {MockSelfVerifier} from "./mocks/MockSelfVerifier.sol";
-import {PoseidonDeployer} from "./mocks/PoseidonDeployer.sol";
+import {PoseidonDeployer} from "../src/PoseidonDeployer.sol";
 import {IPoseidonT3, IPoseidonT5} from "../src/interfaces/IPoseidon.sol";
 
 /**
