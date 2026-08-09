@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IPoseidonT3, IPoseidonT5} from "./interfaces/IPoseidon.sol";
 
 /// @notice Real UltraHonk verifier adapter for the will circuit (Phase 1b).
 interface IWillVerifier {
@@ -39,7 +41,7 @@ interface ISelfHumanVerifier {
  *   - claim (box 3): not yet implemented; the stored merkleRoot + held balances
  *     already support it.
  */
-contract InheritanceRegistry {
+contract InheritanceRegistry is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     ////////////// TYPES //////////////
@@ -69,6 +71,12 @@ contract InheritanceRegistry {
     /// @notice The single ERC20 (mock USDC) this registry escrows alongside ETH.
     IERC20 public immutable usdc;
 
+    /// @notice Poseidon hash_2 (t=3), circomlib-compatible with the will circuit.
+    IPoseidonT3 public immutable poseidonT3;
+
+    /// @notice Poseidon hash_4 (t=5), circomlib-compatible with the will circuit.
+    IPoseidonT5 public immutable poseidonT5;
+
     /// @notice Seconds of owner inactivity before grace can be triggered.
     uint256 public immutable inactivityPeriod;
 
@@ -91,6 +99,9 @@ contract InheritanceRegistry {
     mapping(bytes32 => mapping(uint32 => mapping(address => bool)))
         public hasVetoed;
 
+    /// @notice commitment => beneficiary => already claimed.
+    mapping(bytes32 => mapping(address => bool)) public claimed;
+
     ////////////// EVENTS //////////////
 
     event WillRegistered(
@@ -112,12 +123,19 @@ contract InheritanceRegistry {
         uint32 vetoCount
     );
     event WillExecuted(bytes32 indexed willCommitment, address indexed executor);
+    event Claimed(
+        bytes32 indexed willCommitment,
+        address indexed beneficiary,
+        uint256 ethAmount,
+        uint256 usdcAmount
+    );
 
     ////////////// ERRORS //////////////
 
     error InvalidVerifier();
     error InvalidSelfVerifier();
     error InvalidToken();
+    error InvalidPoseidon();
     error InvalidInactivityPeriod();
     error InvalidGracePeriod();
     error NoVetoMembers();
@@ -144,12 +162,21 @@ contract InheritanceRegistry {
     error AlreadyVetoed();
     error InvalidProof();
 
+    error NotExecuted();
+    error AlreadyClaimed();
+    error NothingToClaim();
+    error InvalidLeafIndex();
+    error InvalidMerkleProof();
+    error TransferFailed();
+
     ////////////// CONSTRUCTOR //////////////
 
     constructor(
         address _willVerifier,
         address _selfVerifier,
         address _usdc,
+        address _poseidonT3,
+        address _poseidonT5,
         uint256 _inactivityPeriod,
         uint256 _gracePeriod,
         address[] memory _vetoMemberList,
@@ -158,6 +185,9 @@ contract InheritanceRegistry {
         if (_willVerifier == address(0)) revert InvalidVerifier();
         if (_selfVerifier == address(0)) revert InvalidSelfVerifier();
         if (_usdc == address(0)) revert InvalidToken();
+        if (_poseidonT3 == address(0) || _poseidonT5 == address(0)) {
+            revert InvalidPoseidon();
+        }
         if (_inactivityPeriod == 0) revert InvalidInactivityPeriod();
         if (_gracePeriod == 0) revert InvalidGracePeriod();
         if (_vetoMemberList.length == 0) revert NoVetoMembers();
@@ -168,6 +198,8 @@ contract InheritanceRegistry {
         willVerifier = IWillVerifier(_willVerifier);
         selfVerifier = ISelfHumanVerifier(_selfVerifier);
         usdc = IERC20(_usdc);
+        poseidonT3 = IPoseidonT3(_poseidonT3);
+        poseidonT5 = IPoseidonT5(_poseidonT5);
         inactivityPeriod = _inactivityPeriod;
         gracePeriod = _gracePeriod;
         vetoThreshold = _vetoThreshold;
@@ -325,6 +357,70 @@ contract InheritanceRegistry {
 
         w.executed = true;
         emit WillExecuted(willCommitment, msg.sender);
+    }
+
+    ////////////// CLAIM (box 3) //////////////
+
+    /**
+     * @notice Claim a beneficiary's exact share of an executed will by proving
+     *         Merkle inclusion of their leaf in the will's Poseidon tree.
+     * @dev The leaf is `Poseidon.hash_4([uint160(msg.sender), ethAmount,
+     *      usdcAmount, 0])`. The 3-level inclusion proof is verified against the
+     *      stored `merkleRoot` (the same root the ZK proof validated). Each
+     *      beneficiary may claim once. Real ETH + USDC transfer.
+     * @param willCommitment The executed will's commitment.
+     * @param ethAmount The caller's ETH allocation (part of their leaf).
+     * @param usdcAmount The caller's USDC allocation (part of their leaf).
+     * @param leafIndex The caller's slot in the 8-leaf tree (0-7); its low 3
+     *        bits give the left/right ordering at each level.
+     * @param siblings The 3 sibling hashes from leaf to root.
+     */
+    function claim(
+        bytes32 willCommitment,
+        uint256 ethAmount,
+        uint256 usdcAmount,
+        uint256 leafIndex,
+        bytes32[3] calldata siblings
+    ) external nonReentrant {
+        Will storage w = wills[willCommitment];
+        if (!w.exists) revert WillNotRegistered();
+        if (!w.executed) revert NotExecuted();
+        if (leafIndex >= 8) revert InvalidLeafIndex();
+        if (ethAmount == 0 && usdcAmount == 0) revert NothingToClaim();
+        if (claimed[willCommitment][msg.sender]) revert AlreadyClaimed();
+
+        // leaf = Poseidon.hash_4([addr, eth, usdc, nft==0])
+        bytes32 node = poseidonT5.poseidon(
+            [
+                bytes32(uint256(uint160(msg.sender))),
+                bytes32(ethAmount),
+                bytes32(usdcAmount),
+                bytes32(0)
+            ]
+        );
+
+        // Walk 3 levels to the root; index bit selects sibling ordering.
+        uint256 idx = leafIndex;
+        for (uint256 i = 0; i < 3; i++) {
+            node = (idx & 1 == 0)
+                ? poseidonT3.poseidon([node, siblings[i]])
+                : poseidonT3.poseidon([siblings[i], node]);
+            idx >>= 1;
+        }
+        if (uint256(node) != w.merkleRoot) revert InvalidMerkleProof();
+
+        // Effects before interactions.
+        claimed[willCommitment][msg.sender] = true;
+
+        if (ethAmount > 0) {
+            (bool ok, ) = payable(msg.sender).call{value: ethAmount}("");
+            if (!ok) revert TransferFailed();
+        }
+        if (usdcAmount > 0) {
+            usdc.safeTransfer(msg.sender, usdcAmount);
+        }
+
+        emit Claimed(willCommitment, msg.sender, ethAmount, usdcAmount);
     }
 
     ////////////// VIEWS //////////////

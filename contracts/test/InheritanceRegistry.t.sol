@@ -7,6 +7,8 @@ import {HonkVerifier} from "../src/HonkVerifier.sol";
 import {WillVerifier} from "../src/WillVerifier.sol";
 import {MockUSDC} from "./mocks/MockUSDC.sol";
 import {MockSelfVerifier} from "./mocks/MockSelfVerifier.sol";
+import {PoseidonDeployer} from "./mocks/PoseidonDeployer.sol";
+import {IPoseidonT3, IPoseidonT5} from "../src/interfaces/IPoseidon.sol";
 
 /**
  * @title InheritanceRegistryTest
@@ -20,6 +22,8 @@ contract InheritanceRegistryTest is Test {
     WillVerifier internal willVerifier;
     MockUSDC internal usdc;
     MockSelfVerifier internal self;
+    IPoseidonT3 internal poseidonT3;
+    IPoseidonT5 internal poseidonT5;
 
     address internal owner = makeAddr("owner");
     address internal alice = makeAddr("alice"); // veto member
@@ -50,6 +54,13 @@ contract InheritanceRegistryTest is Test {
         usdc = new MockUSDC();
         self = new MockSelfVerifier();
 
+        poseidonT3 = IPoseidonT3(
+            PoseidonDeployer.deploy(vm.parseBytes(vm.readFile("poseidon/PoseidonT3.bin")))
+        );
+        poseidonT5 = IPoseidonT5(
+            PoseidonDeployer.deploy(vm.parseBytes(vm.readFile("poseidon/PoseidonT5.bin")))
+        );
+
         address[] memory vetoMembers = new address[](2);
         vetoMembers[0] = alice;
         vetoMembers[1] = bob;
@@ -58,6 +69,8 @@ contract InheritanceRegistryTest is Test {
             address(willVerifier),
             address(self),
             address(usdc),
+            address(poseidonT3),
+            address(poseidonT5),
             INACTIVITY,
             GRACE,
             vetoMembers,
@@ -101,6 +114,52 @@ contract InheritanceRegistryTest is Test {
         vm.warp(block.timestamp + INACTIVITY + 1);
         registry.triggerGracePeriod(fxCommitment);
         vm.warp(block.timestamp + GRACE + 1);
+    }
+
+    /// Register, reach grace end, and execute the fixture will with the real proof.
+    function _registerAndExecute() internal {
+        _reachExecutable();
+        registry.executeWill(fxCommitment, proof);
+    }
+
+    // -- On-chain reconstruction of the fixture's Poseidon tree (matches the
+    //    circuit's nft=0 beneficiary set: addr 1000/2000/3000). --
+
+    function _leaf(uint256 addr, uint256 eth, uint256 amtUsdc)
+        internal
+        view
+        returns (bytes32)
+    {
+        return
+            poseidonT5.poseidon(
+                [bytes32(addr), bytes32(eth), bytes32(amtUsdc), bytes32(0)]
+            );
+    }
+
+    function _h2(bytes32 a, bytes32 b) internal view returns (bytes32) {
+        return poseidonT3.poseidon([a, b]);
+    }
+
+    function _buildTree()
+        internal
+        view
+        returns (
+            bytes32[8] memory bh,
+            bytes32[4] memory l1,
+            bytes32[2] memory l2,
+            bytes32 root
+        )
+    {
+        bh[0] = _leaf(1000, 4, 400);
+        bh[1] = _leaf(2000, 3, 300);
+        bh[2] = _leaf(3000, 3, 300);
+        // bh[3..7] stay 0 (inactive slots are the literal 0, per the circuit)
+        for (uint256 i = 0; i < 4; i++) {
+            l1[i] = _h2(bh[2 * i], bh[2 * i + 1]);
+        }
+        l2[0] = _h2(l1[0], l1[1]);
+        l2[1] = _h2(l1[2], l1[3]);
+        root = _h2(l2[0], l2[1]);
     }
 
     /// Register the standard test will as `owner`. Returns nothing; reverts propagate.
@@ -216,7 +275,17 @@ contract InheritanceRegistryTest is Test {
         address[] memory m = new address[](1);
         m[0] = alice;
         vm.expectRevert(InheritanceRegistry.InvalidVerifier.selector);
-        new InheritanceRegistry(address(0), address(self), address(usdc), INACTIVITY, GRACE, m, 1);
+        new InheritanceRegistry(
+            address(0),
+            address(self),
+            address(usdc),
+            address(poseidonT3),
+            address(poseidonT5),
+            INACTIVITY,
+            GRACE,
+            m,
+            1
+        );
     }
 
     function test_ConstructorRejectsBadVetoThreshold() public {
@@ -227,6 +296,8 @@ contract InheritanceRegistryTest is Test {
             address(willVerifier),
             address(self),
             address(usdc),
+            address(poseidonT3),
+            address(poseidonT5),
             INACTIVITY,
             GRACE,
             m,
@@ -349,6 +420,8 @@ contract InheritanceRegistryTest is Test {
             address(willVerifier),
             address(self),
             address(usdc),
+            address(poseidonT3),
+            address(poseidonT5),
             INACTIVITY,
             GRACE,
             m,
@@ -387,5 +460,92 @@ contract InheritanceRegistryTest is Test {
         vm.prank(anyone);
         vm.expectRevert(InheritanceRegistry.NotVetoMember.selector);
         registry.veto(fxCommitment);
+    }
+
+    //////////////// CLAIM ////////////////
+
+    /// The on-chain Poseidon reproduces the circuit's hash_2([0,0]) exactly.
+    function test_PoseidonMatchesCircuit() public view {
+        assertEq(
+            poseidonT3.poseidon([bytes32(0), bytes32(0)]),
+            bytes32(0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864),
+            "on-chain Poseidon must match noir/circomlib"
+        );
+    }
+
+    /// The on-chain tree over the fixture beneficiary set equals the circuit's
+    /// merkle_root that the ZK proof validated — ties Poseidon to the fixture.
+    function test_OnChainTreeReproducesFixtureRoot() public view {
+        (, , , bytes32 root) = _buildTree();
+        assertEq(uint256(root), fxRoot, "on-chain root == circuit merkle_root");
+    }
+
+    function test_ClaimAllBeneficiariesDrainsEscrow() public {
+        _registerAndExecute();
+        (bytes32[8] memory bh, bytes32[4] memory l1, bytes32[2] memory l2, ) = _buildTree();
+
+        // slot 0: addr 1000, 4 wei + 400 usdc
+        vm.prank(address(1000));
+        registry.claim(fxCommitment, 4, 400, 0, [bh[1], l1[1], l2[1]]);
+        assertEq(address(1000).balance, 4, "b0 eth");
+        assertEq(usdc.balanceOf(address(1000)), 400, "b0 usdc");
+
+        // slot 1: addr 2000, 3 wei + 300 usdc
+        vm.prank(address(2000));
+        registry.claim(fxCommitment, 3, 300, 1, [bh[0], l1[1], l2[1]]);
+        assertEq(address(2000).balance, 3, "b1 eth");
+        assertEq(usdc.balanceOf(address(2000)), 300, "b1 usdc");
+
+        // slot 2: addr 3000, 3 wei + 300 usdc
+        vm.prank(address(3000));
+        registry.claim(fxCommitment, 3, 300, 2, [bh[3], l1[0], l2[1]]);
+        assertEq(address(3000).balance, 3, "b2 eth");
+        assertEq(usdc.balanceOf(address(3000)), 300, "b2 usdc");
+
+        // escrow fully drained (10 wei / 1000 usdc)
+        assertEq(address(registry).balance, 0, "eth drained");
+        assertEq(usdc.balanceOf(address(registry)), 0, "usdc drained");
+    }
+
+    function test_ClaimRevertsBeforeExecute() public {
+        _registerFixtureWill(); // registered but not executed
+        (bytes32[8] memory bh, bytes32[4] memory l1, bytes32[2] memory l2, ) = _buildTree();
+        vm.prank(address(1000));
+        vm.expectRevert(InheritanceRegistry.NotExecuted.selector);
+        registry.claim(fxCommitment, 4, 400, 0, [bh[1], l1[1], l2[1]]);
+    }
+
+    function test_ClaimRevertsOnWrongAmount() public {
+        _registerAndExecute();
+        (bytes32[8] memory bh, bytes32[4] memory l1, bytes32[2] memory l2, ) = _buildTree();
+        vm.prank(address(1000));
+        vm.expectRevert(InheritanceRegistry.InvalidMerkleProof.selector);
+        registry.claim(fxCommitment, 5, 400, 0, [bh[1], l1[1], l2[1]]); // 5 != 4
+    }
+
+    function test_ClaimRevertsForNonBeneficiary() public {
+        _registerAndExecute();
+        (bytes32[8] memory bh, bytes32[4] memory l1, bytes32[2] memory l2, ) = _buildTree();
+        vm.prank(address(9999)); // not in the tree
+        vm.expectRevert(InheritanceRegistry.InvalidMerkleProof.selector);
+        registry.claim(fxCommitment, 4, 400, 0, [bh[1], l1[1], l2[1]]);
+    }
+
+    function test_ClaimRevertsOnDoubleClaim() public {
+        _registerAndExecute();
+        (bytes32[8] memory bh, bytes32[4] memory l1, bytes32[2] memory l2, ) = _buildTree();
+        vm.startPrank(address(1000));
+        registry.claim(fxCommitment, 4, 400, 0, [bh[1], l1[1], l2[1]]);
+        vm.expectRevert(InheritanceRegistry.AlreadyClaimed.selector);
+        registry.claim(fxCommitment, 4, 400, 0, [bh[1], l1[1], l2[1]]);
+        vm.stopPrank();
+    }
+
+    function test_ClaimRevertsOnInvalidLeafIndex() public {
+        _registerAndExecute();
+        (bytes32[8] memory bh, bytes32[4] memory l1, bytes32[2] memory l2, ) = _buildTree();
+        vm.prank(address(1000));
+        vm.expectRevert(InheritanceRegistry.InvalidLeafIndex.selector);
+        registry.claim(fxCommitment, 4, 400, 8, [bh[1], l1[1], l2[1]]); // index >= 8
     }
 }
