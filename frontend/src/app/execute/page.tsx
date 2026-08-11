@@ -5,145 +5,130 @@ import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import VaultCard from "@/components/ui/VaultCard";
 import DataRow from "@/components/ui/DataRow";
+import Field from "@/components/ui/Field";
 import StatTile from "@/components/ui/StatTile";
 import StatusBadge, { type BadgeTone } from "@/components/ui/StatusBadge";
+import Modal from "@/components/ui/Modal";
 import Pulse from "@/components/ui/Pulse";
-import { Search, RefreshCw, Play, Users } from "lucide-react";
+import { Search, RefreshCw, Play, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { Hex } from "viem";
+import type { MyWill } from "@/services/registryService";
 
-interface ExecutableWill {
-  willCommitment: string;
-  owner: string;
-  lastCheckIn: bigint;
-  gracePeriodStart: bigint;
-  isExecutable: boolean;
-  isInGracePeriod: boolean;
-  beneficiaries: {
-    address: string;
-    ethAmount: string;
-    usdcAmount: string;
-    nftCount: string;
-    name: string;
-  }[];
+interface WitnessBeneficiary {
+  address: string;
+  ethAmount: string;
+  usdcAmount: string;
 }
 
 export default function ExecuteWill() {
-  const {
-    isConnected,
-    account,
-    executeWill,
-    getAllRegisteredWills,
-    canUserClaimFromWill,
-    claimFromWill,
-    noirService,
-    connectWallet,
-    isLoading,
-    error,
-  } = useWallet();
+  const { isConnected, account, getAllWills, executeWill, noirService, connectWallet, isLoading, error } =
+    useWallet();
   const toast = useToast();
 
-  const [executableWills, setExecutableWills] = useState<ExecutableWill[]>([]);
-  const [allWills, setAllWills] = useState<any[]>([]);
+  const [allWills, setAllWills] = useState<MyWill[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [localError, setLocalError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<"all" | "executable" | "grace-period" | "claimable">("all");
+  const [filter, setFilter] = useState<"all" | "ready" | "grace">("all");
   const [isLoadingWills, setIsLoadingWills] = useState(false);
 
+  const [showExecuteModal, setShowExecuteModal] = useState(false);
+  const [selectedWill, setSelectedWill] = useState<MyWill | null>(null);
+  const [witnessSalt, setWitnessSalt] = useState("");
+  const [witnessDescription, setWitnessDescription] = useState("");
+  const [witnessBeneficiaries, setWitnessBeneficiaries] = useState<WitnessBeneficiary[]>([
+    { address: "", ethAmount: "", usdcAmount: "" },
+  ]);
+
   useEffect(() => {
-    if (isConnected) loadExecutableWills();
+    if (isConnected) loadWills();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
 
-  const loadExecutableWills = async () => {
-    if (!isConnected || !account) return;
+  const loadWills = async () => {
     setIsLoadingWills(true);
     setLocalError("");
     try {
-      const wills = await getAllRegisteredWills();
-      setAllWills(wills);
-      const data: ExecutableWill[] = wills.map((will) => ({
-        willCommitment: will.willCommitment,
-        owner: will.owner,
-        lastCheckIn: will.lastCheckIn,
-        gracePeriodStart: will.gracePeriodStart,
-        isExecutable: will.isExecutable,
-        isInGracePeriod: will.isInGracePeriod,
-        beneficiaries: [
-          {
-            address: account,
-            ethAmount: will.totalEth,
-            usdcAmount: will.totalUsdc,
-            nftCount: will.totalNfts,
-            name: "Beneficiary 1",
-          },
-        ],
-      }));
-      setExecutableWills(data);
+      setAllWills(await getAllWills());
     } catch (err) {
-      console.error("Failed to load executable wills:", err);
+      console.error("Failed to load wills:", err);
       setLocalError("Failed to load will data. Please try again.");
     } finally {
       setIsLoadingWills(false);
     }
   };
 
-  const handleExecuteWill = async (will: ExecutableWill) => {
-    if (!isConnected) {
-      setLocalError("Please connect your wallet first");
-      return;
-    }
-    setIsProcessing(true);
-    setLocalError("");
-    try {
-      const beneficiaries = will.beneficiaries.map((ben) => ({
-        address: ben.address,
-        ethAmount: BigInt(ben.ethAmount),
-        usdcAmount: BigInt(ben.usdcAmount),
-        nftCount: BigInt(ben.nftCount),
-      }));
-      const willData = {
-        willSalt: "5",
-        willData: ["1", "2", "3", "4"],
-        beneficiaryCount: beneficiaries.length.toString(),
-        beneficiaryAddresses: beneficiaries.map((b) => b.address),
-        beneficiaryEth: beneficiaries.map((b) => b.ethAmount.toString()),
-        beneficiaryUsdc: beneficiaries.map((b) => b.usdcAmount.toString()),
-        beneficiaryNfts: beneficiaries.map((b) => b.nftCount.toString()),
-      };
-      const proofData = await noirService.generateWillProof(willData);
-      const txHash = await executeWill(will.willCommitment, beneficiaries, proofData.proof);
-      console.log("Will executed with tx hash:", txHash);
-      toast("Will executed. Assets distributed.", "seal");
-      setTimeout(() => loadExecutableWills(), 2000);
-    } catch (err) {
-      console.error("Failed to execute will:", err);
-      setLocalError(err instanceof Error ? err.message : "Failed to execute will");
-    } finally {
-      setIsProcessing(false);
+  const now = () => BigInt(Math.floor(Date.now() / 1000));
+
+  const isGraceElapsed = (w: MyWill) => {
+    // gracePeriod isn't known per-will here; approximate readiness client-side
+    // is not reliable without the contract's gracePeriod, so "ready" just
+    // means grace has started — the contract enforces the real elapsed check.
+    return w.will.graceStart !== 0n;
+  };
+
+  const openExecuteModal = (will: MyWill) => {
+    setSelectedWill(will);
+    setWitnessSalt("");
+    setWitnessDescription("");
+    setWitnessBeneficiaries([{ address: "", ethAmount: "", usdcAmount: "" }]);
+    setShowExecuteModal(true);
+  };
+
+  const addWitnessBeneficiary = () => {
+    if (witnessBeneficiaries.length < 8) {
+      setWitnessBeneficiaries((prev) => [...prev, { address: "", ethAmount: "", usdcAmount: "" }]);
     }
   };
 
-  const handleClaimFromWill = async (will: ExecutableWill) => {
-    if (!isConnected || !account) {
-      setLocalError("Please connect your wallet first");
-      return;
+  const removeWitnessBeneficiary = (index: number) => {
+    if (witnessBeneficiaries.length > 1) {
+      setWitnessBeneficiaries((prev) => prev.filter((_, i) => i !== index));
     }
+  };
+
+  const updateWitnessBeneficiary = (index: number, field: keyof WitnessBeneficiary, value: string) => {
+    setWitnessBeneficiaries((prev) =>
+      prev.map((b, i) => (i === index ? { ...b, [field]: value } : b))
+    );
+  };
+
+  const handleExecute = async () => {
+    if (!selectedWill) return;
     setIsProcessing(true);
     setLocalError("");
     try {
-      const canClaim = await canUserClaimFromWill(will.willCommitment, account);
-      if (!canClaim) {
-        setLocalError("You are not eligible to claim from this will");
-        return;
+      const willDataForProof = {
+        willSalt: witnessSalt,
+        willData: [witnessDescription || "Digital Will", "0", "0", "0"],
+        beneficiaryCount: witnessBeneficiaries.length.toString(),
+        beneficiaryAddresses: witnessBeneficiaries.map((b) => b.address),
+        beneficiaryEth: witnessBeneficiaries.map((b) => b.ethAmount || "0"),
+        beneficiaryUsdc: witnessBeneficiaries.map((b) => b.usdcAmount || "0"),
+        beneficiaryNfts: witnessBeneficiaries.map(() => "0"),
+      };
+
+      const proofData = await noirService.generateWillProof(willDataForProof);
+
+      if (proofData.willCommitment.toLowerCase() !== selectedWill.commitment.toLowerCase()) {
+        throw new Error(
+          "The supplied will data doesn't match this will's commitment. Check the salt, description, and beneficiaries."
+        );
       }
-      const txHash = await claimFromWill(will.willCommitment);
-      console.log("Claimed from will with tx hash:", txHash);
-      toast("Claim sent. Your share is on the way.", "alive");
-      setTimeout(() => loadExecutableWills(), 2000);
+      if (BigInt(proofData.merkleRoot) !== selectedWill.will.merkleRoot) {
+        throw new Error(
+          "The supplied beneficiary data doesn't match this will's Merkle root. Check every beneficiary's address, ETH, and USDC amount."
+        );
+      }
+
+      await executeWill(selectedWill.commitment, proofData.proof as Hex);
+      toast("Will executed. Assets distributed.", "seal");
+      setShowExecuteModal(false);
+      setTimeout(() => loadWills(), 2000);
     } catch (err) {
-      console.error("Failed to claim from will:", err);
-      setLocalError(err instanceof Error ? err.message : "Failed to claim from will");
+      console.error("Failed to execute will:", err);
+      setLocalError(err instanceof Error ? err.message : "Failed to execute will");
     } finally {
       setIsProcessing(false);
     }
@@ -154,15 +139,14 @@ export default function ExecuteWill() {
     return date.toLocaleDateString() + " " + date.toLocaleTimeString();
   };
 
-  const filteredWills = executableWills.filter((will) => {
+  const filteredWills = allWills.filter((will) => {
+    const q = searchTerm.toLowerCase();
     const matchesSearch =
-      will.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      will.willCommitment.toLowerCase().includes(searchTerm.toLowerCase());
+      will.will.owner.toLowerCase().includes(q) || will.commitment.toLowerCase().includes(q);
     const matchesFilter =
       filter === "all" ||
-      (filter === "executable" && will.isExecutable) ||
-      (filter === "grace-period" && will.isInGracePeriod) ||
-      (filter === "claimable" && (will.isExecutable || will.isInGracePeriod));
+      (filter === "ready" && isGraceElapsed(will) && !will.will.executed) ||
+      (filter === "grace" && will.will.graceStart !== 0n && !will.will.executed);
     return matchesSearch && matchesFilter;
   });
 
@@ -185,32 +169,30 @@ export default function ExecuteWill() {
     );
   }
 
-  const statusFor = (w: ExecutableWill): { tone: BadgeTone; label: string } =>
-    w.isExecutable
-      ? { tone: "alive", label: "Executable" }
-      : w.isInGracePeriod
-      ? { tone: "grace", label: "Grace period" }
-      : { tone: "neutral", label: "Registered" };
+  const statusFor = (w: MyWill): { tone: BadgeTone; label: string } =>
+    w.will.executed
+      ? { tone: "neutral", label: "Executed" }
+      : w.will.graceStart !== 0n
+      ? { tone: "grace", label: "In grace" }
+      : { tone: "alive", label: "Active" };
 
   return (
     <main className="mx-auto max-w-[1120px] px-6 py-12">
       <div className="t-eyebrow mb-3">EXECUTE</div>
       <h1 className="t-h1 mb-10">Distribute a sealed will.</h1>
 
-      {/* Stats */}
       <div className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
         <StatTile label="Total wills" value={isLoadingWills ? "…" : String(allWills.length)} />
         <StatTile
-          label="Executable"
-          value={isLoadingWills ? "…" : String(allWills.filter((w) => w.isExecutable).length)}
+          label="In grace"
+          value={isLoadingWills ? "…" : String(allWills.filter((w) => w.will.graceStart !== 0n && !w.will.executed).length)}
         />
         <StatTile
-          label="In grace"
-          value={isLoadingWills ? "…" : String(allWills.filter((w) => w.isInGracePeriod).length)}
+          label="Executed"
+          value={isLoadingWills ? "…" : String(allWills.filter((w) => w.will.executed).length)}
         />
       </div>
 
-      {/* Search + filter */}
       <div className="mb-8 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
@@ -228,16 +210,13 @@ export default function ExecuteWill() {
           className="h-11 rounded-control border border-hairline bg-surface-1 px-3 font-mono text-[13px] text-ink"
         >
           <option value="all">All wills</option>
-          <option value="executable">Executable</option>
-          <option value="grace-period">Grace period</option>
-          <option value="claimable">Claimable</option>
+          <option value="grace">In grace</option>
         </select>
-        <Button variant="secondary" onClick={loadExecutableWills} disabled={isLoadingWills}>
+        <Button variant="secondary" onClick={loadWills} disabled={isLoadingWills}>
           <RefreshCw size={15} className={isLoadingWills ? "animate-spin" : ""} /> Refresh
         </Button>
       </div>
 
-      {/* List */}
       {isLoadingWills ? (
         <VaultCard>
           <p className="t-body text-ink-muted">Loading wills from the chain…</p>
@@ -257,48 +236,21 @@ export default function ExecuteWill() {
             const s = statusFor(will);
             return (
               <VaultCard
-                key={will.willCommitment}
+                key={will.commitment}
                 eyebrow="Will"
                 action={<StatusBadge tone={s.tone} dot={s.tone === "alive"}>{s.label}</StatusBadge>}
               >
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div>
-                    <DataRow label="Owner" address={will.owner} />
-                    <DataRow label="Last check-in" value={formatDate(will.lastCheckIn)} />
-                    <DataRow label="Commitment" address={will.willCommitment} />
-                  </div>
-                  <div>
-                    <div className="t-label mb-2">Beneficiaries ({will.beneficiaries.length})</div>
-                    {will.beneficiaries.map((b, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between gap-3 border-b border-hairline py-2 last:border-b-0"
-                      >
-                        <span className="t-body text-ink">{b.name}</span>
-                        <span className="font-mono text-[13px] tabular-nums text-ink-muted">
-                          {b.ethAmount} ETH · {b.usdcAmount} USDC
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <DataRow label="Owner" address={will.will.owner} />
+                <DataRow label="Last check-in" value={formatDate(will.will.lastCheckIn)} />
+                <DataRow label="Commitment" address={will.commitment} />
 
-                <div className="mt-6 flex flex-wrap gap-3 border-t border-hairline pt-5">
-                  {will.isExecutable ? (
-                    <Button onClick={() => handleExecuteWill(will)} loading={isProcessing}>
+                {!will.will.executed && will.will.graceStart !== 0n ? (
+                  <div className="mt-6 flex flex-wrap gap-3 border-t border-hairline pt-5">
+                    <Button onClick={() => openExecuteModal(will)}>
                       <Play size={15} /> Execute
                     </Button>
-                  ) : null}
-                  {will.isExecutable || will.isInGracePeriod ? (
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleClaimFromWill(will)}
-                      loading={isProcessing}
-                    >
-                      <Users size={15} /> Claim your share
-                    </Button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </VaultCard>
             );
           })}
@@ -310,10 +262,93 @@ export default function ExecuteWill() {
       )}
 
       <p className="t-caption mt-8 max-w-[640px]">
-        A will becomes executable after the owner misses check-ins and the grace period
-        ends with no veto. Execution generates a zero-knowledge proof and distributes the
-        sealed shares. Beneficiaries can then claim their exact amount.
+        A will becomes executable after the owner misses check-ins and the
+        grace period ends with no veto. Executing requires the exact will
+        data (salt, description, beneficiaries) the owner sealed with — the
+        chain never stores it. Generating the proof happens in your browser.
       </p>
+
+      <Modal
+        open={showExecuteModal && !!selectedWill}
+        onClose={() => setShowExecuteModal(false)}
+        title="Execute this will"
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setShowExecuteModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleExecute} loading={isProcessing}>
+              Generate proof &amp; execute
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-4">
+          Enter the exact salt, description, and beneficiary allocations this
+          will was sealed with. A mismatch will fail before any transaction is sent.
+        </p>
+        <div className="space-y-4">
+          <Field
+            label="Will salt"
+            mono
+            placeholder="Salt from the sealed-success screen"
+            value={witnessSalt}
+            onChange={(e) => setWitnessSalt(e.target.value)}
+          />
+          <Field
+            label="Description"
+            placeholder="Digital Will"
+            value={witnessDescription}
+            onChange={(e) => setWitnessDescription(e.target.value)}
+          />
+          {witnessBeneficiaries.map((b, i) => (
+            <div key={i} className="rounded-card border border-hairline p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="t-label">Beneficiary {String(i + 1).padStart(2, "0")}</span>
+                {witnessBeneficiaries.length > 1 ? (
+                  <button
+                    onClick={() => removeWitnessBeneficiary(i)}
+                    className="text-ink-faint hover:text-danger"
+                    aria-label="Remove beneficiary"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                ) : null}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field
+                  label="Address"
+                  mono
+                  placeholder="0x..."
+                  value={b.address}
+                  onChange={(e) => updateWitnessBeneficiary(i, "address", e.target.value)}
+                />
+                <Field
+                  label="ETH"
+                  mono
+                  type="number"
+                  placeholder="0.0"
+                  value={b.ethAmount}
+                  onChange={(e) => updateWitnessBeneficiary(i, "ethAmount", e.target.value)}
+                />
+                <Field
+                  label="USDC"
+                  mono
+                  type="number"
+                  placeholder="0"
+                  value={b.usdcAmount}
+                  onChange={(e) => updateWitnessBeneficiary(i, "usdcAmount", e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
+          {witnessBeneficiaries.length < 8 ? (
+            <Button variant="secondary" onClick={addWitnessBeneficiary} className="w-full">
+              <Plus size={16} /> Add beneficiary
+            </Button>
+          ) : null}
+        </div>
+      </Modal>
     </main>
   );
 }
