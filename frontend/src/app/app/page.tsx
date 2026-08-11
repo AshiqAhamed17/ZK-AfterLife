@@ -8,6 +8,8 @@ import StatTile from "@/components/ui/StatTile";
 import Pulse from "@/components/ui/Pulse";
 import Link from "next/link";
 import { ArrowRight, FileSignature, HeartPulse, PlayCircle, Ban } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { MyWill } from "@/services/registryService";
 
 const ACTIONS = [
   { href: "/register", title: "Seal a will", body: "Name beneficiaries and lock assets behind a commitment.", Icon: FileSignature },
@@ -21,7 +23,15 @@ function truncate(a: string) {
 }
 
 export default function AppHome() {
-  const { isConnected, account, balance, connectWallet, isLoading } = useWallet();
+  const { isConnected, account, balance, getMyWill, connectWallet, isLoading } = useWallet();
+  const [myWill, setMyWill] = useState<MyWill | null>(null);
+
+  useEffect(() => {
+    if (isConnected && account) {
+      getMyWill(account).then(setMyWill).catch((err) => console.error("Failed to load my will:", err));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, account]);
 
   if (!isConnected) {
     return (
@@ -42,6 +52,9 @@ export default function AppHome() {
     );
   }
 
+  const status = !myWill ? "None" : myWill.will.executed ? "Executed" : myWill.will.graceStart !== 0n ? "Grace" : "Active";
+  const ethSealed = myWill ? (Number(myWill.will.totalEth) / 1e18).toFixed(4) : "0";
+
   return (
     <main className="mx-auto max-w-[1200px] px-6 py-12">
       <div className="t-eyebrow mb-3">DASHBOARD</div>
@@ -51,7 +64,7 @@ export default function AppHome() {
       <VaultCard eyebrow="Liveness" className="mb-8">
         <div className="grid gap-8 md:grid-cols-[1fr_320px] md:items-center">
           <div>
-            <Pulse state="alive" height={72} />
+            <Pulse state={myWill?.will.graceStart ? "grace" : myWill ? "alive" : "flat"} height={72} />
             <p className="t-body mt-5 text-ink-muted">
               Check in regularly to keep your will sealed. If you go quiet, a grace
               period begins before anything can execute.
@@ -72,12 +85,12 @@ export default function AppHome() {
         </div>
       </VaultCard>
 
-      {/* Stat tiles (placeholder counts until data wiring in Phase 1d) */}
+      {/* Real stat tiles from the connected owner's will */}
       <div className="mb-12 grid grid-cols-2 gap-5 lg:grid-cols-4">
-        <StatTile label="Wills sealed" value="0" />
-        <StatTile label="Beneficiaries" value="0" />
-        <StatTile label="Executed" value="0" />
-        <StatTile label="Vetoes" value="0" />
+        <StatTile label="Wills sealed" value={myWill ? "1" : "0"} />
+        <StatTile label="Status" value={status} />
+        <StatTile label="ETH sealed" value={ethSealed} unit="ETH" />
+        <StatTile label="Vetoes" value={myWill ? String(myWill.will.vetoCount) : "0"} />
       </div>
 
       {/* Actions */}
