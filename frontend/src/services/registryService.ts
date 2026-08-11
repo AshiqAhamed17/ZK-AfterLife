@@ -202,7 +202,13 @@ class RegistryService {
    */
   async getAllWills(): Promise<MyWill[]> {
     const currentBlock = await this.publicClient.getBlockNumber();
-    const fromBlock = currentBlock > 9n ? currentBlock - 9n : 0n;
+    // Scan from genesis by default. Once the registry has a real deployment,
+    // set NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK so this doesn't rescan the whole
+    // chain — most RPC providers don't restrict eth_getLogs range when a
+    // specific contract address is given, so this is safe pre-deployment.
+    const deployBlock = process.env.NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK
+      ? BigInt(process.env.NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK)
+      : 0n;
 
     let logs;
     try {
@@ -218,7 +224,7 @@ class RegistryService {
             { name: "totalUsdc", type: "uint256", indexed: false },
           ],
         },
-        fromBlock,
+        fromBlock: deployBlock,
         toBlock: currentBlock,
       });
     } catch (err) {
