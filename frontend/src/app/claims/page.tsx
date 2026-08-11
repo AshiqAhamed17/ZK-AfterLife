@@ -28,7 +28,7 @@ export default function Claims() {
     setSiblings((prev) => prev.map((s, idx) => (idx === i ? value : s)));
   };
 
-  const isValidBytes32 = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v.trim());
+  const isValidBytes32 = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v);
 
   const handleClaim = async () => {
     setLocalError("");
@@ -36,11 +36,14 @@ export default function Claims() {
       setLocalError("Please connect your wallet first");
       return;
     }
-    if (!isValidBytes32(willCommitment)) {
+    const commitment = willCommitment.trim();
+    const trimmedSiblings = siblings.map((s) => s.trim());
+
+    if (!isValidBytes32(commitment)) {
       setLocalError("Will commitment must be a 32-byte hex value (0x + 64 hex chars).");
       return;
     }
-    if (siblings.some((s) => !isValidBytes32(s))) {
+    if (trimmedSiblings.some((s) => !isValidBytes32(s))) {
       setLocalError("All three sibling hashes must be 32-byte hex values.");
       return;
     }
@@ -59,11 +62,11 @@ export default function Claims() {
       const ethWei = ethAmount ? parseEther(ethAmount) : 0n;
       const usdcBaseUnits = usdcAmount ? parseUnits(usdcAmount, USDC_DECIMALS) : 0n;
       await claim(
-        willCommitment as Hex,
+        commitment as Hex,
         ethWei,
         usdcBaseUnits,
         BigInt(idx),
-        siblings as [Hex, Hex, Hex]
+        trimmedSiblings as [Hex, Hex, Hex]
       );
       toast("Claim sent. Your share is on the way.", "alive");
       setWillCommitment("");

@@ -204,12 +204,13 @@ export default function Veto() {
         }
       >
         <p className="mb-4">
-          This extends the grace period and cannot be undone. Note a reason for the record.
+          This extends the grace period and cannot be undone. Note why, for
+          your own records — this isn&apos;t stored on-chain or anywhere else.
         </p>
         <textarea
           value={vetoReason}
           onChange={(e) => setVetoReason(e.target.value)}
-          placeholder="Why are you vetoing this execution?"
+          placeholder="Why are you vetoing this execution? (personal note, not saved)"
           rows={3}
           className="w-full rounded-control border border-hairline bg-surface-2 px-3 py-2.5 text-ink placeholder:text-ink-faint"
         />
