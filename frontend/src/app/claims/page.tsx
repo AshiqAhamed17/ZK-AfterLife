@@ -4,137 +4,79 @@ import { useWallet } from "@/lib/WalletContext";
 import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import VaultCard from "@/components/ui/VaultCard";
-import DataRow from "@/components/ui/DataRow";
-import StatTile from "@/components/ui/StatTile";
-import StatusBadge, { type BadgeTone } from "@/components/ui/StatusBadge";
-import Commitment from "@/components/ui/Commitment";
+import Field from "@/components/ui/Field";
 import Pulse from "@/components/ui/Pulse";
-import { Coins, Play, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Coins } from "lucide-react";
+import { useState } from "react";
+import { parseEther, parseUnits, type Hex } from "viem";
 
-interface ExecutedWill {
-  willCommitment: string;
-  owner: string;
-  executionTime: bigint;
-  totalEth: string;
-  totalUsdc: string;
-  totalNfts: string;
-  canClaim: boolean;
-}
+const USDC_DECIMALS = 6;
 
 export default function Claims() {
-  const {
-    isConnected,
-    account,
-    getExecutedWillsForBeneficiary,
-    claimFromExecutedWill,
-    checkAndExecuteWills,
-    executeWillSimple,
-    executeWillAlternative,
-    getAllRegisteredWills,
-    connectWallet,
-    isLoading,
-    error,
-  } = useWallet();
+  const { isConnected, claim, connectWallet, isLoading, error } = useWallet();
   const toast = useToast();
 
-  const [executedWills, setExecutedWills] = useState<ExecutedWill[]>([]);
-  const [isLoadingWills, setIsLoadingWills] = useState(false);
+  const [willCommitment, setWillCommitment] = useState("");
+  const [ethAmount, setEthAmount] = useState("");
+  const [usdcAmount, setUsdcAmount] = useState("");
+  const [leafIndex, setLeafIndex] = useState("0");
+  const [siblings, setSiblings] = useState(["", "", ""]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [localError, setLocalError] = useState("");
-  const [processingWill, setProcessingWill] = useState<string | null>(null);
-  const [isExecuting, setIsExecuting] = useState(false);
 
-  useEffect(() => {
-    if (isConnected && account) {
-      loadExecutedWills();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, account]);
-
-  const loadExecutedWills = async () => {
-    if (!account) return;
-    setIsLoadingWills(true);
-    setLocalError("");
-    try {
-      console.log("Loading executed wills for beneficiary:", account);
-      console.log("Checking for wills ready to execute...");
-      await checkAndExecuteWills();
-      const wills = await getExecutedWillsForBeneficiary(account);
-      console.log("Found executed wills:", wills);
-      setExecutedWills(wills);
-    } catch (err) {
-      console.error("Failed to load executed wills:", err);
-      setLocalError("Failed to load executed wills. Please try again.");
-    } finally {
-      setIsLoadingWills(false);
-    }
+  const updateSibling = (i: number, value: string) => {
+    setSiblings((prev) => prev.map((s, idx) => (idx === i ? value : s)));
   };
 
-  const handleManualExecute = async () => {
+  const isValidBytes32 = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v.trim());
+
+  const handleClaim = async () => {
+    setLocalError("");
     if (!isConnected) {
       setLocalError("Please connect your wallet first");
       return;
     }
-    setIsExecuting(true);
-    setLocalError("");
-    try {
-      const registeredWills = await getAllRegisteredWills();
-      if (!registeredWills || registeredWills.length === 0) {
-        setLocalError("No registered wills found. Please register a will first.");
-        return;
-      }
-      const willCommitment = registeredWills[0].willCommitment;
-      console.log("Manually executing will:", willCommitment);
-      let txHash;
-      try {
-        txHash = await executeWillSimple(willCommitment);
-        console.log("Manual execution successful (main method):", txHash);
-      } catch (mainError) {
-        console.warn("Main execution failed, trying alternative method:", mainError);
-        txHash = await executeWillAlternative(willCommitment);
-        console.log("Manual execution successful (alternative method):", txHash);
-      }
-      toast("Will executed. Assets distributed.", "seal");
-      setTimeout(() => loadExecutedWills(), 2000);
-    } catch (err) {
-      console.error("Failed to execute will with both methods:", err);
-      setLocalError(err instanceof Error ? err.message : "Failed to execute will");
-    } finally {
-      setIsExecuting(false);
-    }
-  };
-
-  const handleClaim = async (willCommitment: string) => {
-    if (!isConnected) {
-      setLocalError("Please connect your wallet first");
+    if (!isValidBytes32(willCommitment)) {
+      setLocalError("Will commitment must be a 32-byte hex value (0x + 64 hex chars).");
       return;
     }
+    if (siblings.some((s) => !isValidBytes32(s))) {
+      setLocalError("All three sibling hashes must be 32-byte hex values.");
+      return;
+    }
+    const idx = parseInt(leafIndex, 10);
+    if (Number.isNaN(idx) || idx < 0 || idx > 7) {
+      setLocalError("Leaf index must be between 0 and 7.");
+      return;
+    }
+    if (!ethAmount && !usdcAmount) {
+      setLocalError("Enter your ETH and/or USDC share.");
+      return;
+    }
+
     setIsProcessing(true);
-    setProcessingWill(willCommitment);
-    setLocalError("");
     try {
-      const txHash = await claimFromExecutedWill(willCommitment);
-      console.log("Claim successful with tx hash:", txHash);
+      const ethWei = ethAmount ? parseEther(ethAmount) : 0n;
+      const usdcBaseUnits = usdcAmount ? parseUnits(usdcAmount, USDC_DECIMALS) : 0n;
+      await claim(
+        willCommitment as Hex,
+        ethWei,
+        usdcBaseUnits,
+        BigInt(idx),
+        siblings as [Hex, Hex, Hex]
+      );
       toast("Claim sent. Your share is on the way.", "alive");
-      setTimeout(() => loadExecutedWills(), 2000);
+      setWillCommitment("");
+      setEthAmount("");
+      setUsdcAmount("");
+      setLeafIndex("0");
+      setSiblings(["", "", ""]);
     } catch (err) {
       console.error("Failed to claim:", err);
-      setLocalError(err instanceof Error ? err.message : "Failed to claim ETH");
+      setLocalError(err instanceof Error ? err.message : "Failed to claim");
     } finally {
       setIsProcessing(false);
-      setProcessingWill(null);
     }
-  };
-
-  const formatDate = (timestamp: bigint) => {
-    const date = new Date(Number(timestamp) * 1000);
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString();
-  };
-
-  const formatEther = (wei: string) => {
-    const eth = Number(wei) / 1e18;
-    return eth.toFixed(4);
   };
 
   if (!isConnected) {
@@ -144,9 +86,9 @@ export default function Claims() {
           <div className="mx-auto mb-8 w-40">
             <Pulse state="flat" height={40} />
           </div>
-          <h1 className="t-h1 mb-3">Connect to claim your share.</h1>
+          <h1 className="t-h1 mb-3">Connect to claim your share</h1>
           <p className="t-body mb-8 text-ink-muted">
-            When a will you&apos;re named in executes, your share appears here to claim.
+            You&apos;ll need the claim details the will owner shared with you.
           </p>
           <Button onClick={connectWallet} loading={isLoading}>
             Connect wallet
@@ -156,108 +98,77 @@ export default function Claims() {
     );
   }
 
-  const statusFor = (w: ExecutedWill): { tone: BadgeTone; label: string } =>
-    w.canClaim ? { tone: "alive", label: "Claimable" } : { tone: "neutral", label: "Claimed" };
-
-  const claimableCount = executedWills.filter((w) => w.canClaim).length;
-  const totalEthClaimable = executedWills
-    .filter((w) => w.canClaim)
-    .reduce((sum, w) => sum + parseFloat(w.totalEth), 0);
-
   return (
-    <main className="mx-auto max-w-[1120px] px-6 py-12">
+    <main className="mx-auto max-w-[720px] px-6 py-12">
       <div className="t-eyebrow mb-3">CLAIMS</div>
-      <h1 className="t-h1 mb-10">Claim your share of a sealed will.</h1>
+      <h1 className="t-h1 mb-4">Claim your share.</h1>
+      <p className="t-body mb-10 text-ink-muted">
+        Beneficiary allocations are never public — only the will owner knows
+        who you are and what you&apos;re owed. There&apos;s nothing to browse
+        here; enter the claim details they gave you directly.
+      </p>
 
-      {/* Stats */}
-      <div className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
-        <StatTile label="Executed wills" value={isLoadingWills ? "…" : String(executedWills.length)} />
-        <StatTile label="Claimable" value={isLoadingWills ? "…" : String(claimableCount)} />
-        <StatTile
-          label="Claimed"
-          value={isLoadingWills ? "…" : String(executedWills.length - claimableCount)}
-        />
-        <StatTile
-          label="Your share"
-          value={isLoadingWills ? "…" : formatEther(totalEthClaimable.toString())}
-          unit="ETH"
-        />
-      </div>
-
-      {/* Actions */}
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row">
-        <Button variant="secondary" onClick={loadExecutedWills} disabled={isLoadingWills}>
-          <RefreshCw size={15} className={isLoadingWills ? "animate-spin" : ""} /> Refresh
-        </Button>
-        <Button variant="secondary" onClick={handleManualExecute} loading={isExecuting}>
-          <Play size={15} /> Check for ready wills
-        </Button>
-      </div>
-
-      {/* List */}
-      {isLoadingWills ? (
-        <VaultCard>
-          <p className="t-body text-ink-muted">Loading claims from the chain…</p>
-        </VaultCard>
-      ) : executedWills.length === 0 ? (
-        <VaultCard>
-          <h3 className="t-h3 mb-2">No claims yet</h3>
-          <p className="t-body text-ink-muted">
-            Nothing has been distributed to you yet. When a will you&apos;re named in
-            executes, your share appears here.
-          </p>
-        </VaultCard>
-      ) : (
+      <VaultCard eyebrow="Claim details">
         <div className="space-y-5">
-          {executedWills.map((will) => {
-            const s = statusFor(will);
-            return (
-              <VaultCard
-                key={will.willCommitment}
-                eyebrow="Executed will"
-                action={<StatusBadge tone={s.tone} dot={s.tone === "alive"}>{s.label}</StatusBadge>}
-              >
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div>
-                    <DataRow label="Commitment" address={will.willCommitment} />
-                    <DataRow label="Executed" value={formatDate(will.executionTime)} />
-                    <DataRow label="USDC" value={`${formatEther(will.totalUsdc)} USDC`} />
-                    <DataRow label="NFTs" value={will.totalNfts} />
-                  </div>
-                  <div className="flex items-center justify-between border-b border-hairline py-3 md:border-b-0 md:py-0">
-                    <span className="t-label">Your share</span>
-                    <Commitment
-                      value={`${formatEther(will.totalEth)} ETH`}
-                      revealable
-                      label="Your share"
-                    />
-                  </div>
-                </div>
-
-                {will.canClaim && (
-                  <div className="mt-6 border-t border-hairline pt-5">
-                    <Button
-                      onClick={() => handleClaim(will.willCommitment)}
-                      loading={isProcessing && processingWill === will.willCommitment}
-                    >
-                      <Coins size={15} /> Claim your share
-                    </Button>
-                  </div>
-                )}
-              </VaultCard>
-            );
-          })}
+          <Field
+            label="Will commitment"
+            mono
+            placeholder="0x..."
+            value={willCommitment}
+            onChange={(e) => setWillCommitment(e.target.value)}
+          />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="Your ETH share"
+              mono
+              type="number"
+              placeholder="0.0"
+              value={ethAmount}
+              onChange={(e) => setEthAmount(e.target.value)}
+            />
+            <Field
+              label="Your USDC share"
+              mono
+              type="number"
+              placeholder="0"
+              value={usdcAmount}
+              onChange={(e) => setUsdcAmount(e.target.value)}
+            />
+          </div>
+          <Field
+            label="Leaf index (0-7)"
+            mono
+            type="number"
+            placeholder="0"
+            value={leafIndex}
+            onChange={(e) => setLeafIndex(e.target.value)}
+          />
+          {siblings.map((s, i) => (
+            <Field
+              key={i}
+              label={`Sibling hash ${i + 1} of 3`}
+              mono
+              placeholder="0x..."
+              value={s}
+              onChange={(e) => updateSibling(i, e.target.value)}
+            />
+          ))}
         </div>
-      )}
 
-      {(localError || error) && (
-        <p className="t-caption mt-6 text-danger">{localError || error}</p>
-      )}
+        <div className="mt-6 border-t border-hairline pt-5">
+          <Button onClick={handleClaim} loading={isProcessing}>
+            <Coins size={15} /> Claim
+          </Button>
+        </div>
+      </VaultCard>
+
+      {(localError || error) && <p className="t-caption mt-6 text-danger">{localError || error}</p>}
 
       <p className="t-caption mt-8 max-w-[640px]">
-        A claim becomes available once a will executes. Each beneficiary claims their
-        own exact share — on a public chain, claiming reveals that amount at the time
-        you claim it.
+        Claiming verifies your exact share against the will&apos;s sealed
+        Merkle root and transfers it to your connected wallet. On a public
+        chain, claiming reveals the amount you claimed — that&apos;s the one
+        privacy trade-off of this phase; full execution privacy is the Aztec track.
       </p>
     </main>
   );
