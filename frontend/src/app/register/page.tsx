@@ -10,38 +10,30 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import Stepper from "@/components/ui/Stepper";
 import Pulse from "@/components/ui/Pulse";
 import { ArrowRight, Plus, Trash2, Eye, EyeOff, Copy, Loader2 } from "lucide-react";
+import { parseEther, parseUnits, type Hex } from "viem";
 import React, { useState } from "react";
 
 interface Beneficiary {
   address: string;
   ethAmount: string;
   usdcAmount: string;
-  nftCount: string;
   name: string;
 }
 
 interface WillData {
   beneficiaries: Beneficiary[];
-  totalEth: string;
-  totalUsdc: string;
-  totalNfts: string;
   description: string;
   willSalt: string;
 }
 
 const STEP_LABELS = ["Verify", "Details", "Beneficiaries", "Review"];
+const USDC_DECIMALS = 6;
 
 export default function RegisterWill() {
-  const {
-    isConnected,
-    account,
-    registerWill,
-    connectWallet,
-    isLoading,
-    error,
-  } = useWallet();
+  const { isConnected, account, isSelfVerified, register, noirService, connectWallet, isLoading, error } =
+    useWallet();
   const [step, setStep] = useState(0);
-  const [isSelfVerified, setIsSelfVerified] = useState(false);
+  const [isSelfVerifiedState, setIsSelfVerifiedState] = useState(false);
   const [selfVerificationMethod, setSelfVerificationMethod] = useState<
     "passport" | "aadhaar" | null
   >(null);
@@ -52,25 +44,20 @@ export default function RegisterWill() {
   const [deepLink, setDeepLink] = useState<string>("");
   const [verificationStatus, setVerificationStatus] = useState<string>("");
   const [willData, setWillData] = useState<WillData>({
-    beneficiaries: [{ address: "", ethAmount: "", usdcAmount: "", nftCount: "", name: "" }],
-    totalEth: "",
-    totalUsdc: "",
-    totalNfts: "",
+    beneficiaries: [{ address: "", ethAmount: "", usdcAmount: "", name: "" }],
     description: "",
     willSalt: Math.random().toString(36).substring(2, 15),
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [sealedCommitment, setSealedCommitment] = useState("");
 
   const addBeneficiary = () => {
     if (willData.beneficiaries.length < 8) {
       setWillData((prev) => ({
         ...prev,
-        beneficiaries: [
-          ...prev.beneficiaries,
-          { address: "", ethAmount: "", usdcAmount: "", nftCount: "", name: "" },
-        ],
+        beneficiaries: [...prev.beneficiaries, { address: "", ethAmount: "", usdcAmount: "", name: "" }],
       }));
     }
   };
@@ -87,9 +74,7 @@ export default function RegisterWill() {
   const updateBeneficiary = (index: number, field: keyof Beneficiary, value: string) => {
     setWillData((prev) => ({
       ...prev,
-      beneficiaries: prev.beneficiaries.map((ben, i) =>
-        i === index ? { ...ben, [field]: value } : ben
-      ),
+      beneficiaries: prev.beneficiaries.map((ben, i) => (i === index ? { ...ben, [field]: value } : ben)),
     }));
   };
 
@@ -97,14 +82,14 @@ export default function RegisterWill() {
     if (willData.beneficiaries.some((b) => !b.address.trim() || !b.name.trim())) {
       return "Please fill in all beneficiary details";
     }
-    if (willData.beneficiaries.some((b) => !b.ethAmount && !b.usdcAmount && !b.nftCount)) {
+    if (willData.beneficiaries.some((b) => !b.ethAmount && !b.usdcAmount)) {
       return "Each beneficiary must have at least one asset allocation";
     }
     return null;
   };
 
   const handleSubmit = async () => {
-    if (!isConnected) {
+    if (!isConnected || !account) {
       setLocalError("Please connect your wallet first");
       return;
     }
@@ -116,46 +101,42 @@ export default function RegisterWill() {
     setIsProcessing(true);
     setLocalError("");
     try {
-      const totalEth = willData.beneficiaries.reduce(
-        (sum, ben) => sum + parseFloat(ben.ethAmount || "0"),
-        0
-      );
-      const totalUsdc = willData.beneficiaries.reduce(
-        (sum, ben) => sum + parseFloat(ben.usdcAmount || "0"),
-        0
-      );
-      const totalNfts = willData.beneficiaries.reduce(
-        (sum, ben) => sum + parseInt(ben.nftCount || "0"),
-        0
-      );
+      const verified = await isSelfVerified(account);
+      if (!verified) {
+        setLocalError("Your wallet isn't verified with Self yet. Complete identity verification first.");
+        setIsProcessing(false);
+        return;
+      }
 
-      // Generate a simple will commitment (for demo purposes)
-      const willCommitment = `0x${willData.willSalt}${Date.now().toString(16)}`;
       const description = willData.description.trim() || "Digital Will";
-      const willDataForService = {
-        willCommitment,
+      const willDataForProof = {
         willSalt: willData.willSalt,
-        willData: [description, totalEth.toString(), totalUsdc.toString(), totalNfts.toString()],
+        willData: [description, "0", "0", "0"],
         beneficiaryCount: willData.beneficiaries.length.toString(),
         beneficiaryAddresses: willData.beneficiaries.map((b) => b.address),
         beneficiaryEth: willData.beneficiaries.map((b) => b.ethAmount || "0"),
         beneficiaryUsdc: willData.beneficiaries.map((b) => b.usdcAmount || "0"),
-        beneficiaryNfts: willData.beneficiaries.map((b) => b.nftCount || "0"),
-        beneficiaries: willData.beneficiaries.map((b) => ({
-          address: b.address,
-          ethAmount: b.ethAmount || "0",
-          usdcAmount: b.usdcAmount || "0",
-          nftCount: b.nftCount || "0",
-        })),
-        calculatedTotals: {
-          totalEth: totalEth.toString(),
-          totalUsdc: totalUsdc.toString(),
-          totalNfts: totalNfts.toString(),
-        },
+        beneficiaryNfts: willData.beneficiaries.map(() => "0"),
       };
 
-      const txHash = await registerWill(willDataForService);
-      console.log("Will registered with tx hash:", txHash);
+      // Register needs no proof — only the commitment, root, and totals
+      // (InheritanceRegistry.register takes no proof parameter).
+      const willCommitment = await noirService.generateWillCommitmentAsync(willDataForProof);
+      const merkleRoot = await noirService.generateMerkleRootAsync(willDataForProof);
+
+      const totalEthWei = willData.beneficiaries.reduce(
+        (sum, b) => sum + parseEther(b.ethAmount || "0"),
+        0n
+      );
+      const totalUsdcBaseUnits = willData.beneficiaries.reduce(
+        (sum, b) => sum + parseUnits(b.usdcAmount || "0", USDC_DECIMALS),
+        0n
+      );
+      const merkleRootBigInt = BigInt(merkleRoot);
+
+      await register(willCommitment as Hex, merkleRootBigInt, totalEthWei, totalUsdcBaseUnits);
+
+      setSealedCommitment(willCommitment);
       setStep(4);
     } catch (err) {
       console.error("Failed to register will:", err);
@@ -197,7 +178,7 @@ export default function RegisterWill() {
         (status) => setVerificationStatus(status)
       );
       if (result.success) {
-        setIsSelfVerified(true);
+        setIsSelfVerifiedState(true);
         setVerificationStep("completed");
         setTimeout(() => setStep(1), 2000);
       } else {
@@ -216,16 +197,16 @@ export default function RegisterWill() {
     setQrCode("");
     setDeepLink("");
     setVerificationStatus("");
-    setIsSelfVerified(false);
+    setIsSelfVerifiedState(false);
   };
 
   React.useEffect(() => {
     const checkExistingVerification = async () => {
       if (account && step === 0) {
         try {
-          const isVerified = await selfProtocolService.checkVerificationStatus(account);
-          if (isVerified) {
-            setIsSelfVerified(true);
+          const verified = await isSelfVerified(account);
+          if (verified) {
+            setIsSelfVerifiedState(true);
             setVerificationStep("completed");
           }
         } catch {
@@ -234,6 +215,7 @@ export default function RegisterWill() {
       }
     };
     checkExistingVerification();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, step]);
 
   const totalEthToLock = willData.beneficiaries
@@ -271,7 +253,7 @@ export default function RegisterWill() {
       ) : null}
 
       {/* Step 0 — Verify */}
-      {step === 0 && isSelfVerified ? (
+      {step === 0 && isSelfVerifiedState ? (
         <VaultCard eyebrow="Identity" action={<StatusBadge tone="alive" dot>Verified</StatusBadge>}>
           <h2 className="t-h3 mb-2">You&apos;re verified</h2>
           <p className="t-body mb-6 text-ink-muted">
@@ -283,7 +265,7 @@ export default function RegisterWill() {
         </VaultCard>
       ) : null}
 
-      {step === 0 && !isSelfVerified ? (
+      {step === 0 && !isSelfVerifiedState ? (
         <VaultCard eyebrow="Identity">
           <h2 className="t-h3 mb-2">Verify you&apos;re human and 18+</h2>
           <p className="t-body mb-6 text-ink-muted">
@@ -381,32 +363,10 @@ export default function RegisterWill() {
               rows={4}
               className="w-full rounded-control border border-hairline bg-surface-1 px-3 py-2.5 text-ink placeholder:text-ink-faint"
             />
-            <div className="mt-6 grid gap-5 sm:grid-cols-3">
-              <Field
-                label="Total ETH"
-                mono
-                type="number"
-                placeholder="0.0"
-                value={willData.totalEth}
-                onChange={(e) => setWillData((p) => ({ ...p, totalEth: e.target.value }))}
-              />
-              <Field
-                label="Total USDC"
-                mono
-                type="number"
-                placeholder="0"
-                value={willData.totalUsdc}
-                onChange={(e) => setWillData((p) => ({ ...p, totalUsdc: e.target.value }))}
-              />
-              <Field
-                label="Total NFTs"
-                mono
-                type="number"
-                placeholder="0"
-                value={willData.totalNfts}
-                onChange={(e) => setWillData((p) => ({ ...p, totalNfts: e.target.value }))}
-              />
-            </div>
+            <p className="t-caption mt-4 max-w-[520px]">
+              V1 supports ETH and USDC only. NFT allocations aren&apos;t
+              supported yet — that&apos;s an additive follow-up.
+            </p>
           </VaultCard>
           <div className="flex justify-end">
             <Button onClick={() => setStep(2)} disabled={!willData.description.trim()}>
@@ -450,7 +410,7 @@ export default function RegisterWill() {
                   onChange={(e) => updateBeneficiary(index, "address", e.target.value)}
                 />
               </div>
-              <div className="mt-5 grid gap-5 sm:grid-cols-3">
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
                 <Field
                   label="ETH"
                   mono
@@ -466,14 +426,6 @@ export default function RegisterWill() {
                   placeholder="0"
                   value={b.usdcAmount}
                   onChange={(e) => updateBeneficiary(index, "usdcAmount", e.target.value)}
-                />
-                <Field
-                  label="NFTs"
-                  mono
-                  type="number"
-                  placeholder="0"
-                  value={b.nftCount}
-                  onChange={(e) => updateBeneficiary(index, "nftCount", e.target.value)}
                 />
               </div>
             </VaultCard>
@@ -521,16 +473,17 @@ export default function RegisterWill() {
                   </div>
                 </div>
                 <div className="font-mono text-[13px] tabular-nums text-ink-muted">
-                  {b.ethAmount || "0"} ETH · {b.usdcAmount || "0"} USDC · {b.nftCount || "0"} NFT
+                  {b.ethAmount || "0"} ETH · {b.usdcAmount || "0"} USDC
                 </div>
               </div>
             ))}
           </VaultCard>
 
           <p className="t-caption max-w-[560px]">
-            Sealing locks {totalEthToLock} ETH in the contract until execution. Only the
-            commitment is stored on-chain; your plan stays private. You can withdraw before
-            execution. Keep your will salt safe.
+            Sealing locks {totalEthToLock} ETH (and any declared USDC) in the
+            contract until execution. Only the commitment is stored on-chain;
+            your plan stays private. Keep your description, will salt, and
+            beneficiary details safe — you&apos;ll need them again to execute.
           </p>
 
           <div className="flex justify-between">
@@ -553,23 +506,30 @@ export default function RegisterWill() {
           </p>
 
           <div className="rounded-card border border-hairline p-5">
-            <div className="t-eyebrow mb-2">Will salt · keep this safe</div>
+            <div className="t-eyebrow mb-2">Commitment · keep this safe</div>
             <div className="flex items-center justify-between gap-3">
-              <code className="font-mono text-[14px] text-ink">
-                {showPrivateKey ? willData.willSalt : "•".repeat(willData.willSalt.length)}
+              <code className="truncate font-mono text-[13px] text-ink">
+                {showPrivateKey ? sealedCommitment : "•".repeat(20)}
               </code>
               <div className="flex gap-3 text-ink-faint">
-                <button onClick={() => setShowPrivateKey((v) => !v)} aria-label="Toggle salt visibility" className="hover:text-ink">
+                <button onClick={() => setShowPrivateKey((v) => !v)} aria-label="Toggle commitment visibility" className="hover:text-ink">
                   {showPrivateKey ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
-                <button onClick={() => copyToClipboard(willData.willSalt)} aria-label="Copy salt" className="hover:text-seal">
+                <button onClick={() => copyToClipboard(sealedCommitment)} aria-label="Copy commitment" className="hover:text-seal">
                   <Copy size={16} />
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3 border-t border-hairline pt-6">
+          <p className="t-caption mt-4 max-w-[560px]">
+            You&apos;ll need this commitment, your will salt (
+            <code className="font-mono">{willData.willSalt}</code>), and the
+            same description and beneficiary details to execute this will
+            later — the chain never stores them.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-3 border-t border-hairline pt-6">
             <Button onClick={() => (window.location.href = "/checkin")}>
               Set up check-ins <ArrowRight size={16} />
             </Button>
@@ -580,7 +540,6 @@ export default function RegisterWill() {
         </VaultCard>
       ) : null}
 
-      {/* Error */}
       {(localError || error) && step !== 0 ? (
         <p className="t-caption mt-6 text-danger">{localError || error}</p>
       ) : null}
