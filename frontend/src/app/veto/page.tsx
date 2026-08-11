@@ -5,62 +5,44 @@ import { useToast } from "@/components/ui/Toast";
 import Button from "@/components/ui/Button";
 import VaultCard from "@/components/ui/VaultCard";
 import DataRow from "@/components/ui/DataRow";
-import StatTile from "@/components/ui/StatTile";
 import StatusBadge, { type BadgeTone } from "@/components/ui/StatusBadge";
 import Modal from "@/components/ui/Modal";
 import Pulse from "@/components/ui/Pulse";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
-
-interface VetoableWill {
-  willCommitment: string;
-  owner: string;
-  lastCheckIn: bigint;
-  gracePeriodStart: bigint;
-  timeInGracePeriod: bigint;
-  beneficiaries: {
-    address: string;
-    ethAmount: string;
-    usdcAmount: string;
-    nftCount: string;
-    name: string;
-  }[];
-  vetoCount: number;
-  maxVetoes: number;
-  isVetoed: boolean;
-}
+import type { Hex } from "viem";
+import type { MyWill } from "@/services/registryService";
 
 export default function Veto() {
-  const { isConnected, account, castVeto, getVetoStatus, getCheckInStatus, connectWallet, isLoading, error } =
+  const { isConnected, account, getAllWills, isVetoMember, veto, connectWallet, isLoading, error } =
     useWallet();
   const toast = useToast();
-  const [vetoableWills, setVetoableWills] = useState<VetoableWill[]>([]);
-  const [selectedWill, setSelectedWill] = useState<VetoableWill | null>(null);
+  const [vetoableWills, setVetoableWills] = useState<MyWill[]>([]);
+  const [amIVetoMember, setAmIVetoMember] = useState(false);
+  const [selectedWill, setSelectedWill] = useState<MyWill | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [localError, setLocalError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<"all" | "vetoable" | "vetoed">("all");
   const [showVetoModal, setShowVetoModal] = useState(false);
   const [vetoReason, setVetoReason] = useState("");
 
   useEffect(() => {
-    if (isConnected) loadVetoData();
+    if (isConnected && account) loadVetoData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected]);
+  }, [isConnected, account]);
 
   const loadVetoData = async () => {
     try {
-      const [vetoStatus, checkInStatus] = await Promise.all([getVetoStatus(), getCheckInStatus()]);
-      console.log("Veto status:", vetoStatus, "Check-in status:", checkInStatus);
-      // No enumeration of all wills available yet; show empty state.
-      setVetoableWills([]);
+      const [all, member] = await Promise.all([getAllWills(), isVetoMember(account!)]);
+      setAmIVetoMember(member);
+      setVetoableWills(all.filter((w) => w.will.graceStart !== 0n && !w.will.executed));
     } catch (err) {
       console.error("Failed to load veto data:", err);
       setLocalError("Failed to load veto data. Please try again.");
     }
   };
 
-  const handleVetoWill = async (_will: VetoableWill, reason: string) => {
+  const handleVetoWill = async (will: MyWill, reason: string) => {
     if (!isConnected) {
       setLocalError("Please connect your wallet first");
       return;
@@ -69,8 +51,7 @@ export default function Veto() {
     setLocalError("");
     try {
       console.log("Casting veto with reason:", reason);
-      const txHash = await castVeto();
-      console.log("Veto cast with tx hash:", txHash);
+      await veto(will.commitment);
       toast("Veto cast. Grace period extended.", "grace");
       setShowVetoModal(false);
       setVetoReason("");
@@ -88,22 +69,16 @@ export default function Veto() {
     return date.toLocaleDateString() + " " + date.toLocaleTimeString();
   };
 
-  const statusFor = (w: VetoableWill): { tone: BadgeTone; label: string } =>
-    w.isVetoed
-      ? { tone: "danger", label: "Vetoed" }
-      : w.vetoCount > 0
-      ? { tone: "grace", label: `${w.vetoCount}/${w.maxVetoes} vetoes` }
-      : { tone: "alive", label: "No vetoes" };
+  const statusFor = (w: MyWill): { tone: BadgeTone; label: string } => ({
+    tone: "grace",
+    label: `Grace · veto ${w.will.vetoCount}`,
+  });
 
   const filteredWills = vetoableWills.filter((will) => {
-    const matchesSearch =
-      will.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      will.willCommitment.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter =
-      filter === "all" ||
-      (filter === "vetoable" && !will.isVetoed) ||
-      (filter === "vetoed" && will.isVetoed);
-    return matchesSearch && matchesFilter;
+    const q = searchTerm.toLowerCase();
+    return (
+      will.will.owner.toLowerCase().includes(q) || will.commitment.toLowerCase().includes(q)
+    );
   });
 
   if (!isConnected) {
@@ -130,18 +105,16 @@ export default function Veto() {
       <div className="t-eyebrow mb-3">VETO</div>
       <h1 className="t-h1 mb-10">Stop a premature execution.</h1>
 
-      {/* Stats */}
-      <div className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
-        <StatTile label="Wills in grace" value={String(vetoableWills.length)} />
-        <StatTile label="Vetoable" value={String(vetoableWills.filter((w) => !w.isVetoed).length)} />
-        <StatTile label="Vetoed" value={String(vetoableWills.filter((w) => w.isVetoed).length)} />
-        <StatTile
-          label="Beneficiaries"
-          value={String(vetoableWills.reduce((sum, w) => sum + w.beneficiaries.length, 0))}
-        />
-      </div>
+      {!amIVetoMember ? (
+        <VaultCard className="mb-8">
+          <p className="t-body text-ink-muted">
+            Your connected address isn&apos;t part of the veto committee. You
+            can see wills currently in grace, but only committee members can
+            cast a veto.
+          </p>
+        </VaultCard>
+      ) : null}
 
-      {/* Search + filter */}
       <div className="mb-8 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
@@ -153,24 +126,17 @@ export default function Veto() {
             className="h-11 w-full rounded-control border border-hairline bg-surface-1 pl-9 pr-3 font-mono text-[14px] text-ink placeholder:text-ink-faint"
           />
         </div>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as typeof filter)}
-          className="h-11 rounded-control border border-hairline bg-surface-1 px-3 font-mono text-[13px] text-ink"
-        >
-          <option value="all">All wills</option>
-          <option value="vetoable">Vetoable</option>
-          <option value="vetoed">Vetoed</option>
-        </select>
+        <Button variant="secondary" onClick={loadVetoData}>
+          Refresh
+        </Button>
       </div>
 
-      {/* List */}
       {filteredWills.length === 0 ? (
         <VaultCard>
           <h3 className="t-h3 mb-2">No wills in grace</h3>
           <p className="t-body text-ink-muted">
-            Nothing is currently vetoable. A will appears here only while it is in its grace
-            window, and only veto members can act on it.
+            Nothing is currently vetoable. A will appears here only while it
+            is in its grace window.
           </p>
         </VaultCard>
       ) : (
@@ -179,46 +145,29 @@ export default function Veto() {
             const s = statusFor(will);
             return (
               <VaultCard
-                key={will.willCommitment}
+                key={will.commitment}
                 eyebrow="Will in grace"
                 action={<StatusBadge tone={s.tone}>{s.label}</StatusBadge>}
               >
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div>
-                    <DataRow label="Owner" address={will.owner} />
-                    <DataRow label="Last check-in" value={formatDate(will.lastCheckIn)} />
-                    <DataRow label="Grace started" value={formatDate(will.gracePeriodStart)} />
-                    <DataRow label="Vetoes" value={`${will.vetoCount}/${will.maxVetoes}`} />
-                    <DataRow label="Commitment" address={will.willCommitment} />
-                  </div>
-                  <div>
-                    <div className="t-label mb-2">Beneficiaries ({will.beneficiaries.length})</div>
-                    {will.beneficiaries.map((b, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between gap-3 border-b border-hairline py-2 last:border-b-0"
-                      >
-                        <span className="t-body text-ink">{b.name}</span>
-                        <span className="font-mono text-[13px] tabular-nums text-ink-muted">
-                          {b.ethAmount} ETH
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <DataRow label="Owner" address={will.will.owner} />
+                <DataRow label="Last check-in" value={formatDate(will.will.lastCheckIn)} />
+                <DataRow label="Grace started" value={formatDate(will.will.graceStart)} />
+                <DataRow label="Commitment" address={will.commitment} />
 
-                <div className="mt-6 border-t border-hairline pt-5">
-                  <Button
-                    variant="destructive"
-                    disabled={will.isVetoed || isProcessing}
-                    onClick={() => {
-                      setSelectedWill(will);
-                      setShowVetoModal(true);
-                    }}
-                  >
-                    {will.isVetoed ? "Vetoed" : "Veto execution"}
-                  </Button>
-                </div>
+                {amIVetoMember ? (
+                  <div className="mt-6 border-t border-hairline pt-5">
+                    <Button
+                      variant="destructive"
+                      disabled={isProcessing}
+                      onClick={() => {
+                        setSelectedWill(will);
+                        setShowVetoModal(true);
+                      }}
+                    >
+                      Veto execution
+                    </Button>
+                  </div>
+                ) : null}
               </VaultCard>
             );
           })}
@@ -228,12 +177,12 @@ export default function Veto() {
       {(localError || error) && <p className="t-caption mt-6 text-danger">{localError || error}</p>}
 
       <p className="t-caption mt-8 max-w-[640px]">
-        Only veto members can cast a veto, and only during a will&apos;s grace window. Each
-        veto extends grace (commonly by 30 days), up to a maximum. Use it only when the owner
-        is temporarily unavailable, not gone.
+        Only veto committee members can cast a veto, and only during a will&apos;s
+        grace window. Reaching the veto threshold cancels grace and restarts
+        the inactivity clock. Use it only when the owner is temporarily
+        unavailable, not gone.
       </p>
 
-      {/* Veto confirm modal */}
       <Modal
         open={showVetoModal && !!selectedWill}
         onClose={() => setShowVetoModal(false)}
