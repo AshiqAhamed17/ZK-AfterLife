@@ -10,52 +10,80 @@ import Pulse, { type PulseState } from "@/components/ui/Pulse";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { Hex } from "viem";
 
-interface CheckInStatus {
+interface DerivedStatus {
+  willCommitment: Hex | null;
   lastCheckIn: bigint;
   isInGracePeriod: boolean;
   gracePeriodStart: bigint;
   timeUntilGracePeriod: bigint;
-  hasRegisteredWills?: boolean;
-  willCommitment?: string;
+  hasRegisteredWills: boolean;
 }
 
 export default function CheckIn() {
-  const { isConnected, account, checkIn, getCheckInStatus, connectWallet, isLoading, error } =
+  const { isConnected, account, getMyWill, getGraceConfig, checkIn, connectWallet, isLoading, error } =
     useWallet();
   const toast = useToast();
-  const [checkInStatus, setCheckInStatus] = useState<CheckInStatus | null>(null);
+  const [status, setStatus] = useState<DerivedStatus | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [localError, setLocalError] = useState("");
 
   useEffect(() => {
     if (isConnected && account) {
-      loadCheckInStatus();
+      loadStatus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, account]);
 
-  const loadCheckInStatus = async () => {
+  const loadStatus = async () => {
     try {
-      const status = await getCheckInStatus(account!);
-      setCheckInStatus(status);
+      const my = await getMyWill(account!);
+      if (!my) {
+        setStatus({
+          willCommitment: null,
+          lastCheckIn: 0n,
+          isInGracePeriod: false,
+          gracePeriodStart: 0n,
+          timeUntilGracePeriod: 0n,
+          hasRegisteredWills: false,
+        });
+        return;
+      }
+      const { inactivityPeriod } = await getGraceConfig();
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      const isInGracePeriod = my.will.graceStart !== 0n;
+      const graceEligibleAt = my.will.lastCheckIn + inactivityPeriod;
+      const timeUntilGracePeriod = isInGracePeriod
+        ? 0n
+        : graceEligibleAt > now
+        ? graceEligibleAt - now
+        : 0n;
+
+      setStatus({
+        willCommitment: my.commitment,
+        lastCheckIn: my.will.lastCheckIn,
+        isInGracePeriod,
+        gracePeriodStart: my.will.graceStart,
+        timeUntilGracePeriod,
+        hasRegisteredWills: true,
+      });
     } catch (err) {
       console.error("Failed to load check-in status:", err);
     }
   };
 
   const handleCheckIn = async () => {
-    if (!isConnected) {
+    if (!isConnected || !status?.willCommitment) {
       setLocalError("Connect your wallet first.");
       return;
     }
     setIsProcessing(true);
     setLocalError("");
     try {
-      const txHash = await checkIn();
-      console.log("Check-in successful with tx hash:", txHash);
+      await checkIn(status.willCommitment);
       toast("Check-in recorded. You're active.", "alive");
-      setTimeout(() => loadCheckInStatus(), 1800);
+      setTimeout(() => loadStatus(), 1800);
     } catch (err) {
       console.error("Failed to check in:", err);
       setLocalError(err instanceof Error ? err.message : "Failed to check in.");
@@ -81,18 +109,18 @@ export default function CheckIn() {
   };
 
   const getStatusColor = () => {
-    if (!checkInStatus) return "gray";
-    if (checkInStatus.hasRegisteredWills === false) return "gray";
-    if (checkInStatus.isInGracePeriod) return "red";
-    if (checkInStatus.timeUntilGracePeriod < 30n * 24n * 60n * 60n) return "yellow";
+    if (!status) return "gray";
+    if (!status.hasRegisteredWills) return "gray";
+    if (status.isInGracePeriod) return "red";
+    if (status.timeUntilGracePeriod < 30n * 24n * 60n * 60n) return "yellow";
     return "green";
   };
 
   const getStatusText = () => {
-    if (!checkInStatus) return "Loading";
-    if (checkInStatus.hasRegisteredWills === false) return "No will sealed";
-    if (checkInStatus.isInGracePeriod) return "Grace period";
-    if (checkInStatus.timeUntilGracePeriod < 30n * 24n * 60n * 60n) return "Due soon";
+    if (!status) return "Loading";
+    if (!status.hasRegisteredWills) return "No will sealed";
+    if (status.isInGracePeriod) return "Grace period";
+    if (status.timeUntilGracePeriod < 30n * 24n * 60n * 60n) return "Due soon";
     return "Active";
   };
 
@@ -119,7 +147,7 @@ export default function CheckIn() {
   const pulseState: PulseState = color === "red" ? "grace" : color === "gray" ? "flat" : "alive";
   const badgeTone: BadgeTone =
     color === "green" ? "alive" : color === "yellow" ? "grace" : color === "red" ? "danger" : "neutral";
-  const noWills = checkInStatus?.hasRegisteredWills === false;
+  const noWills = status?.hasRegisteredWills === false;
 
   return (
     <main className="mx-auto max-w-[1200px] px-6 py-12">
@@ -127,7 +155,6 @@ export default function CheckIn() {
       <h1 className="t-h1 mb-10">Prove you&apos;re still here.</h1>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_400px] lg:items-start">
-        {/* Pulse + action */}
         <VaultCard
           eyebrow="Liveness"
           action={<StatusBadge tone={badgeTone} dot={badgeTone === "alive"}>{getStatusText()}</StatusBadge>}
@@ -136,10 +163,10 @@ export default function CheckIn() {
 
           <div className="mt-8">
             <div className="t-label mb-2">
-              {checkInStatus?.isInGracePeriod ? "Grace period active" : "Next check-in due in"}
+              {status?.isInGracePeriod ? "Grace period active" : "Next check-in due in"}
             </div>
             <div className="font-mono text-[2.25rem] leading-none tabular-nums text-ink">
-              {checkInStatus ? formatTimeRemaining(checkInStatus.timeUntilGracePeriod) : "—"}
+              {status ? formatTimeRemaining(status.timeUntilGracePeriod) : "—"}
             </div>
           </div>
 
@@ -165,12 +192,11 @@ export default function CheckIn() {
           ) : null}
         </VaultCard>
 
-        {/* Status details */}
         <VaultCard
           eyebrow="Status"
           action={
             <button
-              onClick={loadCheckInStatus}
+              onClick={loadStatus}
               className="inline-flex items-center gap-1.5 t-caption text-ink-faint transition-colors hover:text-seal"
               aria-label="Refresh status"
             >
@@ -178,21 +204,18 @@ export default function CheckIn() {
             </button>
           }
         >
-          {checkInStatus ? (
+          {status ? (
             <>
               <DataRow
                 label="Last check-in"
-                value={checkInStatus.lastCheckIn > 0n ? formatDate(checkInStatus.lastCheckIn) : "Never"}
+                value={status.lastCheckIn > 0n ? formatDate(status.lastCheckIn) : "Never"}
               />
-              <DataRow
-                label="Grace period"
-                value={checkInStatus.isInGracePeriod ? "Active" : "Inactive"}
-              />
-              {checkInStatus.isInGracePeriod ? (
-                <DataRow label="Grace started" value={formatDate(checkInStatus.gracePeriodStart)} />
+              <DataRow label="Grace period" value={status.isInGracePeriod ? "Active" : "Inactive"} />
+              {status.isInGracePeriod ? (
+                <DataRow label="Grace started" value={formatDate(status.gracePeriodStart)} />
               ) : null}
-              {checkInStatus.willCommitment ? (
-                <DataRow label="Commitment" address={checkInStatus.willCommitment} />
+              {status.willCommitment ? (
+                <DataRow label="Commitment" address={status.willCommitment} />
               ) : null}
             </>
           ) : (
@@ -202,8 +225,8 @@ export default function CheckIn() {
       </div>
 
       <p className="t-caption mt-8 max-w-[640px]">
-        Check in at least once a period to stay active. Missing a check-in opens a
-        grace window (commonly 30 days) during which a trusted circle can veto before
+        Check in at least once a period to stay active. Missing a check-in
+        opens a grace window during which a trusted circle can veto before
         anything executes.
       </p>
     </main>
