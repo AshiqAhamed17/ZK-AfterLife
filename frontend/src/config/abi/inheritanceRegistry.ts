@@ -1,0 +1,43 @@
+import { parseAbi } from "viem";
+
+// Verbatim from contracts/src/InheritanceRegistry.sol. Frozen interface —
+// keep in lockstep with the deployed contract (see docs/superpowers/specs/
+// 2026-08-09-inheritance-registry-design.md).
+export const INHERITANCE_REGISTRY_ABI = parseAbi([
+  "function register(bytes32 willCommitment, uint256 merkleRoot, uint256 totalEth, uint256 totalUsdc, uint256 totalNftCount) payable",
+  "function checkIn(bytes32 willCommitment)",
+  "function triggerGracePeriod(bytes32 willCommitment)",
+  "function veto(bytes32 willCommitment)",
+  "function executeWill(bytes32 willCommitment, bytes proof)",
+  "function claim(bytes32 willCommitment, uint256 ethAmount, uint256 usdcAmount, uint256 leafIndex, bytes32[3] siblings)",
+  "function getWill(bytes32 willCommitment) view returns ((address owner, uint256 merkleRoot, uint256 totalEth, uint256 totalUsdc, uint64 registeredAt, uint64 lastCheckIn, uint64 graceStart, uint32 graceEpoch, uint32 vetoCount, bool executed, bool exists))",
+  "function getVetoMembers() view returns (address[])",
+  "function isVetoMember(address) view returns (bool)",
+  "function inactivityPeriod() view returns (uint256)",
+  "function gracePeriod() view returns (uint256)",
+  "function vetoThreshold() view returns (uint256)",
+  "event WillRegistered(bytes32 indexed willCommitment, address indexed owner, uint256 totalEth, uint256 totalUsdc)",
+  "error NotVerifiedHuman()",
+  "error WillAlreadyRegistered()",
+  "error InvalidMerkleRoot()",
+  "error NftsNotSupported()",
+  "error EmptyWill()",
+  "error EthDepositMismatch()",
+  "error WillNotRegistered()",
+  "error WillAlreadyExecuted()",
+  "error NotWillOwner()",
+  "error StillActive()",
+  "error GraceAlreadyActive()",
+  "error GraceNotStarted()",
+  "error GraceNotElapsed()",
+  "error GracePeriodOver()",
+  "error NotVetoMember()",
+  "error AlreadyVetoed()",
+  "error InvalidProof()",
+  "error NotExecuted()",
+  "error AlreadyClaimed()",
+  "error NothingToClaim()",
+  "error InvalidLeafIndex()",
+  "error InvalidMerkleProof()",
+  "error TransferFailed()",
+]);
