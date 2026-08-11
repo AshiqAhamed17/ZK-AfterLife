@@ -1,5 +1,6 @@
 import { SelfBackendVerifier, getUniversalLink } from '@selfxyz/core';
 import QRCode from 'qrcode';
+import { registryService } from './registryService';
 
 export interface SelfVerificationResult {
     success: boolean;
@@ -89,73 +90,54 @@ export class SelfProtocolService {
         }
     }
 
+    /**
+     * Poll the real on-chain SelfHumanVerifier (via registryService.isSelfVerified)
+     * until the connected user is verified, or time out. No simulated success —
+     * this resolves only when the contract actually reports the user verified.
+     */
     async waitForVerification(
         method: 'passport' | 'aadhaar',
         userAddress: string,
         onProgress?: (status: string) => void
     ): Promise<SelfVerificationResult> {
-        return new Promise(async (resolve, reject) => {
-            try {
-                if (!this.isInitialized) {
-                    await this.initialize(userAddress);
-                }
+        if (!this.isInitialized) {
+            await this.initialize(userAddress);
+        }
 
-                onProgress?.('Waiting for verification...');
+        const timeoutMs = 5 * 60 * 1000; // 5 minutes to complete the Self app flow
+        const pollIntervalMs = 3000;
+        const startedAt = Date.now();
 
-                // For demonstration purposes, we'll simulate the verification
-                // In a real implementation, this would poll the contract or use WebSocket
-                // The ConfigNotSet error suggests the contract needs proper configuration
+        onProgress?.('Waiting for verification...');
 
-                console.log('🔍 Simulating Self Protocol verification...');
-                console.log('📋 Verification config:', {
-                    minimumAge: 18,
-                    excludedCountries: ["USA"],
-                    ofac: false
-                });
-                console.log('🎯 Target contract:', this.contractAddress);
-                console.log('👤 User address:', userAddress);
-
-                setTimeout(() => {
-                    onProgress?.('Processing verification data...');
-
-                    setTimeout(() => {
-                        onProgress?.('Verification completed, processing...');
-
-                        // Simulate successful verification
-                        // In production, this would verify against the actual contract
-                        const result: SelfVerificationResult = {
-                            success: true,
-                            userAddress: userAddress,
-                            method: method,
-                            nationality: method === 'passport' ? 'USA' : 'IND',
-                            ageVerified: true,
-                        };
-
-                        onProgress?.('Verification successful!');
-                        console.log('✅ Mock verification completed:', result);
-                        resolve(result);
-                    }, 2000);
-                }, 2000);
-
-            } catch (error) {
-                console.error('❌ Failed to wait for verification:', error);
-                reject(new Error(`Failed to wait for verification: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        while (Date.now() - startedAt < timeoutMs) {
+            const verified = await registryService.isSelfVerified(userAddress as `0x${string}`);
+            if (verified) {
+                onProgress?.('Verification successful!');
+                return {
+                    success: true,
+                    userAddress,
+                    method,
+                    // The contract's isFullyVerified already requires age >= 18;
+                    // nationality isn't exposed by this read, so it's omitted
+                    // rather than guessed.
+                    ageVerified: true,
+                };
             }
-        });
+            await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+        }
+
+        throw new Error(
+            'Verification timed out. Complete the scan in the Self app, then try again.'
+        );
     }
 
+    /** Real on-chain read — no simulated status. */
     async checkVerificationStatus(userAddress: string): Promise<boolean> {
         try {
-            if (!this.isInitialized) {
-                await this.initialize(userAddress);
-            }
-
-            // In a real implementation, this would check the contract
-            // For now, return false to always require verification
-            console.log('ℹ️ Checking verification status for:', userAddress);
-            return false;
+            return await registryService.isSelfVerified(userAddress as `0x${string}`);
         } catch (error) {
-            console.error('❌ Failed to check verification status:', error);
+            console.error('Failed to check verification status:', error);
             return false;
         }
     }
