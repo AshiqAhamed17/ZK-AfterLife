@@ -232,10 +232,11 @@ Follows `design.md` §10 build order. Each box = one commit.
 - [x] Foundry lifecycle test (register→lapse→grace→veto→execute→claim) + access/reentrancy/double-claim. `(test(contracts): lifecycle)` — test_FullLifecycle threads the whole narrative with the real proof; test_ClaimReentrancyIsBlocked proves the guard (attacker gets exactly one share). 40 tests total.
 - **Done when:** end-to-end Foundry test moves real funds to the right beneficiaries. ✅ register→execute(real proof)→claim drains escrow to the exact beneficiaries.
 
-### Phase 1d — Frontend made real  ·  branch `phase-1d-frontend` - Use sonnet 5
-- [ ] Remove mock fallbacks in `noirService`; fail loudly. `(fix(frontend): no mock proofs)`
-- [ ] Fix commitment to Poseidon everywhere (register + withdraw). `(fix(frontend): poseidon commitment)`
-- [ ] Real on-chain verify in `onChainVerifier` (uncomment `readContract`). `(feat(frontend): onchain verify)`
+### Phase 1d — Frontend made real  ·  branch `phase-1d-frontend` - Use sonnet 5 — first two boxes expanded into a full rewire on `main`
+- [x] Remove mock fallbacks in `noirService`; fail loudly. `(fix(frontend): no mock proofs)`
+- [x] Fix commitment to Poseidon everywhere (register + withdraw). `(fix(frontend): poseidon commitment)` — the withdraw half is superseded: `/withdraw` was removed (no InheritanceRegistry equivalent, see below).
+  - Exploring these two boxes found the entire frontend contract-integration layer (`blockchain.ts`, `onChainVerifier.ts`, `config/contracts.ts`) still targeted contracts deleted in Phase 1c's collapse. Expanded into a full rewire: new `registryService.ts` targeting `InheritanceRegistry` directly, `noirService.ts` cleaned (proving only, no chain calls), `WalletContext.tsx` rewritten, and all 7 pages (register/checkin/veto/execute/claims/withdraw/dashboard) rewired. `/withdraw` became an honest explainer (no owner-recall function exists on the registry, by design) and `/claims` became a manual claim-entry form (beneficiary data is intentionally off-chain; the old page faked eligibility entirely). This also closes the box below. See `docs/superpowers/specs/2026-08-10-frontend-registry-rewire-design.md` and `docs/superpowers/plans/2026-08-10-frontend-registry-rewire.md`.
+- [x] Real on-chain verify in `onChainVerifier` (uncomment `readContract`). `(feat(frontend): onchain verify)` — subsumed: `onChainVerifier.ts` (fake 16-field proof struct, real verify call commented out) is deleted; all execution now goes through `registryService.executeWill`, a real call.
 - [ ] Real Self verification (on-chain read; delete `setTimeout` fake). `(feat(frontend): real self)`
 - [ ] E2E in-browser vs testnet: register → prove → verify → claim. `(test(frontend): e2e)`
 - **Done when:** the deployed app performs a real end-to-end will with real proofs.
