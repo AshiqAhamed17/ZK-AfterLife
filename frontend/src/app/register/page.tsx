@@ -109,13 +109,20 @@ export default function RegisterWill() {
       }
 
       const description = willData.description.trim() || "Digital Will";
+      // The circuit's beneficiary_eth/beneficiary_usdc are wei / 6-decimal-base-unit
+      // integers — the same integers register()/executeWill() use on-chain — not
+      // human decimal strings. noirService.stringToBigInt only parses plain
+      // integers; feeding it "0.01" silently hashes the text instead of the
+      // amount, corrupting the circuit's declared totals against the escrowed ones.
       const willDataForProof = {
         willSalt: willData.willSalt,
         willData: [description, "0", "0", "0"],
         beneficiaryCount: willData.beneficiaries.length.toString(),
         beneficiaryAddresses: willData.beneficiaries.map((b) => b.address),
-        beneficiaryEth: willData.beneficiaries.map((b) => b.ethAmount || "0"),
-        beneficiaryUsdc: willData.beneficiaries.map((b) => b.usdcAmount || "0"),
+        beneficiaryEth: willData.beneficiaries.map((b) => parseEther(b.ethAmount || "0").toString()),
+        beneficiaryUsdc: willData.beneficiaries.map((b) =>
+          parseUnits(b.usdcAmount || "0", USDC_DECIMALS).toString()
+        ),
         beneficiaryNfts: willData.beneficiaries.map(() => "0"),
       };
 

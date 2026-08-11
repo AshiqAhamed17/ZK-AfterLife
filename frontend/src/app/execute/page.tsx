@@ -12,8 +12,10 @@ import Modal from "@/components/ui/Modal";
 import Pulse from "@/components/ui/Pulse";
 import { Search, RefreshCw, Play, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Hex } from "viem";
+import { parseEther, parseUnits, type Hex } from "viem";
 import type { MyWill } from "@/services/registryService";
+
+const USDC_DECIMALS = 6;
 
 interface WitnessBeneficiary {
   address: string;
@@ -22,8 +24,17 @@ interface WitnessBeneficiary {
 }
 
 export default function ExecuteWill() {
-  const { isConnected, account, getAllWills, executeWill, noirService, connectWallet, isLoading, error } =
-    useWallet();
+  const {
+    isConnected,
+    account,
+    getAllWills,
+    triggerGracePeriod,
+    executeWill,
+    noirService,
+    connectWallet,
+    isLoading,
+    error,
+  } = useWallet();
   const toast = useToast();
 
   const [allWills, setAllWills] = useState<MyWill[]>([]);
@@ -94,18 +105,38 @@ export default function ExecuteWill() {
     );
   };
 
+  const handleTriggerGrace = async (will: MyWill) => {
+    setIsProcessing(true);
+    setLocalError("");
+    try {
+      await triggerGracePeriod(will.commitment);
+      toast("Grace period opened.", "grace");
+      setTimeout(() => loadWills(), 2000);
+    } catch (err) {
+      console.error("Failed to trigger grace period:", err);
+      setLocalError(err instanceof Error ? err.message : "Failed to trigger grace period");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleExecute = async () => {
     if (!selectedWill) return;
     setIsProcessing(true);
     setLocalError("");
     try {
+      // Same wei / 6-decimal-base-unit conversion register/page.tsx used to seal
+      // this will — the circuit's totals must match the on-chain escrowed integers,
+      // not human decimal strings (see register/page.tsx for why).
       const willDataForProof = {
         willSalt: witnessSalt,
         willData: [witnessDescription || "Digital Will", "0", "0", "0"],
         beneficiaryCount: witnessBeneficiaries.length.toString(),
         beneficiaryAddresses: witnessBeneficiaries.map((b) => b.address),
-        beneficiaryEth: witnessBeneficiaries.map((b) => b.ethAmount || "0"),
-        beneficiaryUsdc: witnessBeneficiaries.map((b) => b.usdcAmount || "0"),
+        beneficiaryEth: witnessBeneficiaries.map((b) => parseEther(b.ethAmount || "0").toString()),
+        beneficiaryUsdc: witnessBeneficiaries.map((b) =>
+          parseUnits(b.usdcAmount || "0", USDC_DECIMALS).toString()
+        ),
         beneficiaryNfts: witnessBeneficiaries.map(() => "0"),
       };
 
@@ -248,6 +279,18 @@ export default function ExecuteWill() {
                   <div className="mt-6 flex flex-wrap gap-3 border-t border-hairline pt-5">
                     <Button onClick={() => openExecuteModal(will)}>
                       <Play size={15} /> Execute
+                    </Button>
+                  </div>
+                ) : null}
+
+                {!will.will.executed && will.will.graceStart === 0n ? (
+                  <div className="mt-6 flex flex-wrap gap-3 border-t border-hairline pt-5">
+                    <Button
+                      variant="secondary"
+                      disabled={isProcessing}
+                      onClick={() => handleTriggerGrace(will)}
+                    >
+                      Trigger grace period
                     </Button>
                   </div>
                 ) : null}

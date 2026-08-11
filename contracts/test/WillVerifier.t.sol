@@ -13,9 +13,16 @@ import {WillVerifier} from "../src/WillVerifier.sol";
  *         WillVerifier -> HonkVerifier, and any tampering fails.
  *
  * Fixtures in test/fixtures/ are the exact artifacts from:
- *   bb prove -b will.json -w will.gz -k vk -o proof --verifier_target evm --scheme ultra_honk
+ *   bb prove -b will.json -w will.gz -k vk -o proof --verifier_target evm-no-zk --scheme ultra_honk
  *   - will_proof.bin         = proof/proof         (raw UltraHonk proof bytes)
  *   - will_public_inputs.bin = proof/public_inputs (5 x bytes32, frozen order)
+ *
+ * Non-ZK, not the `evm` (ZK) target: as of bb.js (Aztec's Barretenberg JS
+ * package) version 5.1.0, in-browser proving produces a different (longer)
+ * proof for the ZK target than the native `bb` CLI does for the identical
+ * circuit — a confirmed native/bb.js discrepancy, not an application bug.
+ * The non-ZK target's output matches byte-for-byte between native bb and
+ * bb.js, so the verifier targets it too.
  */
 contract WillVerifierTest is Test {
     HonkVerifier internal honk;

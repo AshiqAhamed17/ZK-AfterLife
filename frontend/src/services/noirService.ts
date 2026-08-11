@@ -90,14 +90,15 @@ export class NoirService {
     const { Noir } = noirMod as any;
 
     const bbModule = await import('@aztec/bb.js');
-    const { UltraHonkBackend } = bbModule as any;
-    if (!UltraHonkBackend) {
-      throw new Error('UltraHonkBackend not found in @aztec/bb.js');
+    const { UltraHonkBackend, Barretenberg } = bbModule as any;
+    if (!UltraHonkBackend || !Barretenberg) {
+      throw new Error('UltraHonkBackend/Barretenberg not found in @aztec/bb.js');
     }
 
     this.noir = new Noir(this.acir);
     const acirBytes = this.acir?.bytecode || this.acir?.acir || this.acir;
-    this.backend = new UltraHonkBackend(acirBytes);
+    const api = await Barretenberg.new({ backend: 'Wasm' });
+    this.backend = new UltraHonkBackend(acirBytes, api);
 
     this.isInitialized = true;
   }
@@ -171,13 +172,22 @@ export class NoirService {
     const exec = await this.noir.execute(inputs);
     const witness = exec.witness ?? exec;
 
-    const generated = await this.backend.generateProof(witness);
+    // Must match how HonkVerifier.sol was generated (bb write_vk + write_solidity_verifier,
+    // evm-no-zk target: keccak oracle hash). Not the ZK `evm` target: as of
+    // @aztec/bb.js 5.1.0, in-browser proving for the ZK target produces a
+    // longer proof than the native `bb` CLI does for the identical circuit —
+    // a confirmed native/bb.js discrepancy, not an application bug. The
+    // non-ZK target's output matches byte-for-byte between native bb and
+    // bb.js, so both the circuit's verifier and this proving call target it.
+    const proofOptions = { verifierTarget: 'evm-no-zk' };
+
+    const generated = await this.backend.generateProof(witness, proofOptions);
     const proofBytes: Uint8Array = (generated as any).proof;
     const pubInputsRaw: any[] = (generated as any).publicInputs || [];
     const proofHex = this.bytesToHex(proofBytes);
     const pubInputs: string[] = pubInputsRaw.map((x: any) => typeof x === 'bigint' ? asField(x) : String(x));
 
-    const isValid = await this.backend.verifyProof(generated);
+    const isValid = await this.backend.verifyProof(generated, proofOptions);
     if (!isValid) {
       throw new Error('Generated proof failed local verification.');
     }

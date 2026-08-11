@@ -15,7 +15,7 @@ import {
   formatEther,
   http,
 } from "viem";
-import { localhost, mainnet, sepolia } from "viem/chains";
+import { hardhat, mainnet, sepolia } from "viem/chains";
 
 export interface WillRecord {
   owner: Address;
@@ -74,13 +74,15 @@ class RegistryService {
   private getChain(chainId: number) {
     switch (chainId) {
       case 31337:
-        return localhost;
+        // viem's `localhost` preset has id 1337 (Ganache-era convention);
+        // Anvil/Hardhat actually use 31337, which is `hardhat` in viem/chains.
+        return hardhat;
       case 11155111:
         return sepolia;
       case 1:
         return mainnet;
       default:
-        return localhost;
+        return hardhat;
     }
   }
 
@@ -126,7 +128,11 @@ class RegistryService {
   }
 
   async waitForTransaction(hash: Hex): Promise<any> {
-    return await this.publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") {
+      throw new Error(`Transaction ${hash} reverted on-chain.`);
+    }
+    return receipt;
   }
 
   async getTransactionStatus(hash: Hex): Promise<"pending" | "success" | "failed"> {
