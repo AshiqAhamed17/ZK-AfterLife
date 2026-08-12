@@ -1,6 +1,7 @@
 "use client";
 
 import { useWallet } from "@/lib/WalletContext";
+import { getCurrentNetwork } from "@/config/contracts";
 import { selfProtocolService, SelfVerificationResult } from "@/services/SelfProtocolService";
 import Button from "@/components/ui/Button";
 import Field from "@/components/ui/Field";
@@ -30,8 +31,17 @@ const STEP_LABELS = ["Verify", "Details", "Beneficiaries", "Review"];
 const USDC_DECIMALS = 6;
 
 export default function RegisterWill() {
-  const { isConnected, account, isSelfVerified, register, noirService, connectWallet, isLoading, error } =
-    useWallet();
+  const {
+    isConnected,
+    account,
+    isSelfVerified,
+    mockVerifySelf,
+    register,
+    noirService,
+    connectWallet,
+    isLoading,
+    error,
+  } = useWallet();
   const [step, setStep] = useState(0);
   const [isSelfVerifiedState, setIsSelfVerifiedState] = useState(false);
   const [selfVerificationMethod, setSelfVerificationMethod] = useState<
@@ -158,6 +168,27 @@ export default function RegisterWill() {
   const handleVerificationMethodSelect = (method: "passport" | "aadhaar") => {
     setSelfVerificationMethod(method);
     setVerificationStep("instructions");
+  };
+
+  // Testnet-only: this network's SelfHumanVerifier is a MockSelfVerifier —
+  // Self's real identity hub only exists on Celo/Celo Sepolia today, so the
+  // real QR/passport-scan flow above can never complete here. The mock has
+  // no access control by design, so any connected wallet can verify itself.
+  const handleMockVerify = async () => {
+    if (!account) return;
+    setIsProcessing(true);
+    setLocalError("");
+    try {
+      await mockVerifySelf(account);
+      setIsSelfVerifiedState(true);
+      setVerificationStep("completed");
+      setTimeout(() => setStep(1), 1500);
+    } catch (err) {
+      console.error("Mock verification failed:", err);
+      setLocalError(err instanceof Error ? err.message : "Failed to verify");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const generateQRCode = async () => {
@@ -295,6 +326,19 @@ export default function RegisterWill() {
                 <div className="t-h3">Aadhaar</div>
                 <p className="t-body mt-1 text-ink-muted">Indian Aadhaar, QR.</p>
               </button>
+            </div>
+          ) : null}
+
+          {verificationStep === "select" && getCurrentNetwork().selfVerifierIsMock ? (
+            <div className="mt-5 border-t border-hairline pt-5">
+              <p className="t-caption mb-3 max-w-[520px]">
+                Self&apos;s real identity hub only exists on Celo today, so passport/Aadhaar
+                verification can&apos;t complete on this network. This testnet deploy uses a
+                mock gate instead — everything else (the circuit, the registry, the proof) is real.
+              </p>
+              <Button variant="secondary" onClick={handleMockVerify} loading={isProcessing}>
+                Skip verification (testnet mock)
+              </Button>
             </div>
           ) : null}
 
