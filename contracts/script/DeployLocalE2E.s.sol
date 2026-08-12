@@ -14,17 +14,14 @@ import {MockSelfVerifier} from "../test/mocks/MockSelfVerifier.sol";
 /// @dev Test-only: stands in MockUSDC + MockSelfVerifier for the real ERC20 /
 ///      Self Protocol hub, which cannot be exercised on a local chain. Every
 ///      other contract (HonkVerifier, WillVerifier, Poseidon, InheritanceRegistry)
-///      is the genuine production contract. Timers default short so the E2E
-///      run finishes in real wall-clock time.
+///      is the genuine production contract. Inactivity/grace/veto committee
+///      are chosen per-will at register() time, supplied by the E2E harness.
 ///      Run: forge script script/DeployLocalE2E.s.sol --rpc-url http://localhost:8545 --broadcast --private-key <pk>
 contract DeployLocalE2EScript is Script {
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(pk);
         address owner = vm.envOr("E2E_OWNER", deployer);
-
-        uint256 inactivity = vm.envOr("INACTIVITY_PERIOD", uint256(20));
-        uint256 grace = vm.envOr("GRACE_PERIOD", uint256(15));
 
         bytes memory t3code = vm.parseBytes(vm.readFile("poseidon/PoseidonT3.bin"));
         bytes memory t5code = vm.parseBytes(vm.readFile("poseidon/PoseidonT5.bin"));
@@ -57,7 +54,5 @@ contract DeployLocalE2EScript is Script {
         console.log("WILL_VERIFIER_ADDR=%s", address(willVerifier));
         console.log("POSEIDON_T3_ADDR=%s", poseidonT3);
         console.log("POSEIDON_T5_ADDR=%s", poseidonT5);
-        console.log("INACTIVITY=%s", inactivity);
-        console.log("GRACE=%s", grace);
     }
 }

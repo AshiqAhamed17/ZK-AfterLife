@@ -20,16 +20,13 @@ import {MockSelfVerifier} from "../test/mocks/MockSelfVerifier.sol";
 ///      "Skip verification (testnet mock)" button so any real visitor can
 ///      still complete a real will end to end. Every other contract
 ///      (HonkVerifier, WillVerifier, Poseidon, InheritanceRegistry, the will
-///      circuit) is the genuine production system.
+///      circuit) is the genuine production system. Inactivity/grace/veto
+///      committee are chosen per-will at register() time, not deploy time.
 ///      Run: forge script script/DeployTestnet.s.sol --rpc-url <RPC> --broadcast --private-key <pk> [--verify --etherscan-api-key <KEY>]
 contract DeployTestnetScript is Script {
     struct Config {
         uint256 pk;
         address deployer;
-        uint256 inactivity;
-        uint256 grace;
-        uint256 vetoThreshold;
-        address veto2;
     }
 
     struct Deployed {
@@ -48,8 +45,6 @@ contract DeployTestnetScript is Script {
     }
 
     function _deploy(Config memory c) internal returns (Deployed memory d) {
-        address[] memory vetoMembers = _vetoMembers(c);
-
         bytes memory t3code = vm.parseBytes(vm.readFile("poseidon/PoseidonT3.bin"));
         bytes memory t5code = vm.parseBytes(vm.readFile("poseidon/PoseidonT5.bin"));
 
@@ -62,13 +57,7 @@ contract DeployTestnetScript is Script {
         d.poseidonT5 = PoseidonDeployer.deploy(t5code);
 
         d.registry = address(
-            new InheritanceRegistry(
-                d.willVerifier,
-                d.self,
-                d.usdc,
-                d.poseidonT3,
-                d.poseidonT5
-            )
+            new InheritanceRegistry(d.willVerifier, d.self, d.usdc, d.poseidonT3, d.poseidonT5)
         );
 
         vm.stopBroadcast();
@@ -84,32 +73,10 @@ contract DeployTestnetScript is Script {
         console.log("USDC_ADDR=%s", d.usdc);
         console.log("SELF_VERIFIER_ADDR=%s", d.self);
         console.log("DEPLOY_BLOCK=%s", block.number);
-        console.log("INACTIVITY=%s", c.inactivity);
-        console.log("GRACE=%s", c.grace);
-        console.log("VETO_THRESHOLD=%s", c.vetoThreshold);
     }
 
     function _config() internal view returns (Config memory c) {
         c.pk = vm.envUint("PRIVATE_KEY");
         c.deployer = vm.addr(c.pk);
-        // ~10min inactivity / ~5min grace by default — short enough that a
-        // real visitor (or a demo video) can complete a full lifecycle in one
-        // sitting, long enough to be a genuine liveness/grace window, not an
-        // instant no-op. Override for a longer-lived public demo.
-        c.inactivity = vm.envOr("INACTIVITY_PERIOD", uint256(600));
-        c.grace = vm.envOr("GRACE_PERIOD", uint256(300));
-        c.vetoThreshold = vm.envOr("VETO_THRESHOLD", uint256(1));
-        c.veto2 = vm.envOr("VETO_MEMBER_2", address(0));
-    }
-
-    function _vetoMembers(Config memory c) internal pure returns (address[] memory members) {
-        if (c.veto2 != address(0)) {
-            members = new address[](2);
-            members[0] = c.deployer;
-            members[1] = c.veto2;
-        } else {
-            members = new address[](1);
-            members[0] = c.deployer;
-        }
     }
 }

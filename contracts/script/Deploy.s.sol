@@ -9,8 +9,8 @@ import {PoseidonDeployer} from "../src/PoseidonDeployer.sol";
 
 /// @title Deploy the ZK-AfterLife V1 stack
 /// @notice Deploys HonkVerifier -> WillVerifier -> Poseidon(T3,T5) ->
-///         InheritanceRegistry. Timing defaults to demo values; override via env
-///         for production (e.g. 365d inactivity / 30d grace).
+///         InheritanceRegistry. Inactivity/grace/veto committee are chosen
+///         per-will at register() time, not at deploy time.
 /// @dev External deps are deployed separately and passed by address:
 ///        SELF_VERIFIER  - SelfHumanVerifier (see DeploySelfHumanVerifier.s.sol)
 ///        USDC_TOKEN     - the ERC20 escrowed alongside ETH
@@ -21,15 +21,10 @@ contract DeployScript is Script {
         address deployer;
         address selfVerifier;
         address usdc;
-        uint256 inactivity;
-        uint256 grace;
-        uint256 vetoThreshold;
-        address veto2;
     }
 
     function run() external {
         Config memory c = _config();
-        address[] memory vetoMembers = _vetoMembers(c);
 
         bytes memory t3code = vm.parseBytes(vm.readFile("poseidon/PoseidonT3.bin"));
         bytes memory t5code = vm.parseBytes(vm.readFile("poseidon/PoseidonT5.bin"));
@@ -65,20 +60,5 @@ contract DeployScript is Script {
         c.deployer = vm.addr(c.pk);
         c.selfVerifier = vm.envAddress("SELF_VERIFIER");
         c.usdc = vm.envAddress("USDC_TOKEN");
-        c.inactivity = vm.envOr("INACTIVITY_PERIOD", uint256(30));
-        c.grace = vm.envOr("GRACE_PERIOD", uint256(15));
-        c.vetoThreshold = vm.envOr("VETO_THRESHOLD", uint256(1));
-        c.veto2 = vm.envOr("VETO_MEMBER_2", address(0));
-    }
-
-    function _vetoMembers(Config memory c) internal pure returns (address[] memory members) {
-        if (c.veto2 != address(0)) {
-            members = new address[](2);
-            members[0] = c.deployer;
-            members[1] = c.veto2;
-        } else {
-            members = new address[](1);
-            members[0] = c.deployer;
-        }
     }
 }
