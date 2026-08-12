@@ -25,10 +25,19 @@ interface WillData {
   beneficiaries: Beneficiary[];
   description: string;
   willSalt: string;
+  inactivityDays: string;
+  graceDays: string;
+  vetoMembers: string[];
+  vetoThreshold: string;
 }
 
-const STEP_LABELS = ["Verify", "Details", "Beneficiaries", "Review"];
+const STEP_LABELS = ["Verify", "Details", "Beneficiaries", "Trusted circle", "Review"];
 const USDC_DECIMALS = 6;
+// Mirrors InheritanceRegistry's MIN_INACTIVITY_PERIOD / MIN_GRACE_PERIOD (seconds)
+// and MAX_VETO_MEMBERS — client-side validation only; the contract enforces
+// the real floor/cap regardless.
+const MIN_PERIOD_SECONDS = 60;
+const MAX_VETO_MEMBERS = 8;
 
 export default function RegisterWill() {
   const {
@@ -57,6 +66,10 @@ export default function RegisterWill() {
     beneficiaries: [{ address: "", ethAmount: "", usdcAmount: "", name: "" }],
     description: "",
     willSalt: Math.random().toString(36).substring(2, 15),
+    inactivityDays: "365",
+    graceDays: "30",
+    vetoMembers: [""],
+    vetoThreshold: "1",
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
@@ -86,6 +99,45 @@ export default function RegisterWill() {
       ...prev,
       beneficiaries: prev.beneficiaries.map((ben, i) => (i === index ? { ...ben, [field]: value } : ben)),
     }));
+  };
+
+  const addVetoMember = () => {
+    if (willData.vetoMembers.length < MAX_VETO_MEMBERS) {
+      setWillData((prev) => ({ ...prev, vetoMembers: [...prev.vetoMembers, ""] }));
+    }
+  };
+
+  const removeVetoMember = (index: number) => {
+    if (willData.vetoMembers.length > 1) {
+      setWillData((prev) => ({
+        ...prev,
+        vetoMembers: prev.vetoMembers.filter((_, i) => i !== index),
+      }));
+    }
+  };
+
+  const updateVetoMember = (index: number, value: string) => {
+    setWillData((prev) => ({
+      ...prev,
+      vetoMembers: prev.vetoMembers.map((m, i) => (i === index ? value : m)),
+    }));
+  };
+
+  const vetoValidationError = (): string | null => {
+    const members = willData.vetoMembers.map((m) => m.trim()).filter(Boolean);
+    if (members.length === 0) return "Add at least one trusted circle member";
+    if (members.some((m) => !/^0x[0-9a-fA-F]{40}$/.test(m))) {
+      return "Every trusted circle member needs a valid address";
+    }
+    const threshold = parseInt(willData.vetoThreshold || "0", 10);
+    if (!threshold || threshold < 1 || threshold > members.length) {
+      return "Veto threshold must be between 1 and the number of trusted circle members";
+    }
+    const inactivitySeconds = parseFloat(willData.inactivityDays || "0") * 86400;
+    const graceSeconds = parseFloat(willData.graceDays || "0") * 86400;
+    if (inactivitySeconds < MIN_PERIOD_SECONDS) return "Inactivity period is too short";
+    if (graceSeconds < MIN_PERIOD_SECONDS) return "Grace period is too short";
+    return null;
   };
 
   const validateForm = () => {
@@ -151,10 +203,26 @@ export default function RegisterWill() {
       );
       const merkleRootBigInt = BigInt(merkleRoot);
 
-      await register(willCommitment as Hex, merkleRootBigInt, totalEthWei, totalUsdcBaseUnits);
+      const inactivityPeriodSeconds = BigInt(
+        Math.round(parseFloat(willData.inactivityDays || "0") * 86400)
+      );
+      const gracePeriodSeconds = BigInt(Math.round(parseFloat(willData.graceDays || "0") * 86400));
+      const vetoMembersAddrs = willData.vetoMembers.map((m) => m.trim()).filter(Boolean) as Hex[];
+      const vetoThresholdBigInt = BigInt(parseInt(willData.vetoThreshold || "1", 10));
+
+      await register(
+        willCommitment as Hex,
+        merkleRootBigInt,
+        totalEthWei,
+        totalUsdcBaseUnits,
+        inactivityPeriodSeconds,
+        gracePeriodSeconds,
+        vetoMembersAddrs,
+        vetoThresholdBigInt
+      );
 
       setSealedCommitment(willCommitment);
-      setStep(4);
+      setStep(5);
     } catch (err) {
       console.error("Failed to register will:", err);
       setLocalError(err instanceof Error ? err.message : "Failed to register will");
@@ -284,7 +352,7 @@ export default function RegisterWill() {
       <div className="t-eyebrow mb-3">SEAL A WILL</div>
       <h1 className="t-h1 mb-8">Turn your wishes into a proof.</h1>
 
-      {step < 4 ? (
+      {step < 5 ? (
         <div className="mb-10">
           <Stepper steps={STEP_LABELS} current={step} />
         </div>
@@ -502,13 +570,109 @@ export default function RegisterWill() {
         </div>
       ) : null}
 
-      {/* Step 3 — Review */}
+      {/* Step 3 — Trusted circle */}
       {step === 3 ? (
+        <div className="space-y-6">
+          <VaultCard eyebrow="Safety settings">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Inactivity period (days)"
+                mono
+                type="number"
+                placeholder="365"
+                value={willData.inactivityDays}
+                onChange={(e) => setWillData((prev) => ({ ...prev, inactivityDays: e.target.value }))}
+              />
+              <Field
+                label="Grace period (days)"
+                mono
+                type="number"
+                placeholder="30"
+                value={willData.graceDays}
+                onChange={(e) => setWillData((prev) => ({ ...prev, graceDays: e.target.value }))}
+              />
+            </div>
+            <p className="t-caption mt-4 max-w-[520px]">
+              If you miss check-ins for this long, anyone can open a grace
+              window. Your trusted circle can veto during grace before
+              anything executes.
+            </p>
+          </VaultCard>
+
+          <VaultCard eyebrow="Trusted circle">
+            {willData.vetoMembers.map((member, index) => (
+              <div key={index} className="mb-4 flex items-end gap-3 last:mb-0">
+                <div className="flex-1">
+                  <Field
+                    label={`Member ${String(index + 1).padStart(2, "0")}`}
+                    mono
+                    placeholder="0x..."
+                    value={member}
+                    onChange={(e) => updateVetoMember(index, e.target.value)}
+                  />
+                </div>
+                {willData.vetoMembers.length > 1 ? (
+                  <button
+                    onClick={() => removeVetoMember(index)}
+                    className="mb-2.5 text-ink-faint transition-colors hover:text-danger"
+                    aria-label="Remove trusted member"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            {willData.vetoMembers.length < MAX_VETO_MEMBERS ? (
+              <Button variant="secondary" onClick={addVetoMember} className="mt-2 w-full">
+                <Plus size={16} /> Add trusted member
+              </Button>
+            ) : null}
+            <div className="mt-5">
+              <Field
+                label="Veto threshold"
+                mono
+                type="number"
+                placeholder="1"
+                value={willData.vetoThreshold}
+                onChange={(e) => setWillData((prev) => ({ ...prev, vetoThreshold: e.target.value }))}
+              />
+              <p className="t-caption mt-1.5">
+                How many of your trusted circle must veto to cancel a false alarm.
+              </p>
+            </div>
+          </VaultCard>
+
+          {vetoValidationError() ? (
+            <p className="t-caption text-danger">{vetoValidationError()}</p>
+          ) : null}
+
+          <div className="flex justify-between">
+            <Button variant="secondary" onClick={() => setStep(2)}>
+              Back
+            </Button>
+            <Button onClick={() => setStep(4)} disabled={!!vetoValidationError()}>
+              Next <ArrowRight size={16} />
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Step 4 — Review */}
+      {step === 4 ? (
         <div className="space-y-6">
           <VaultCard eyebrow="Review">
             <DataRow label="Description" value={willData.description || "Digital Will"} />
             <DataRow label="Beneficiaries" value={String(willData.beneficiaries.length)} />
             <DataRow label="ETH to lock" value={`${totalEthToLock} ETH`} />
+          </VaultCard>
+
+          <VaultCard eyebrow="Safety settings">
+            <DataRow label="Inactivity period" value={`${willData.inactivityDays || "0"} days`} />
+            <DataRow label="Grace period" value={`${willData.graceDays || "0"} days`} />
+            <DataRow
+              label="Trusted circle"
+              value={`${willData.vetoMembers.filter((m) => m.trim()).length} members, threshold ${willData.vetoThreshold}`}
+            />
           </VaultCard>
 
           <VaultCard eyebrow="Beneficiaries">
@@ -538,7 +702,7 @@ export default function RegisterWill() {
           </p>
 
           <div className="flex justify-between">
-            <Button variant="secondary" onClick={() => setStep(2)}>
+            <Button variant="secondary" onClick={() => setStep(3)}>
               Back
             </Button>
             <Button onClick={handleSubmit} loading={isProcessing}>
@@ -548,8 +712,8 @@ export default function RegisterWill() {
         </div>
       ) : null}
 
-      {/* Step 4 — Success */}
-      {step === 4 ? (
+      {/* Step 5 — Success */}
+      {step === 5 ? (
         <VaultCard eyebrow="Sealed" action={<StatusBadge tone="alive" dot>Active</StatusBadge>}>
           <h2 className="t-h2 mb-2">Your will is sealed.</h2>
           <p className="t-body mb-6 text-ink-muted">
