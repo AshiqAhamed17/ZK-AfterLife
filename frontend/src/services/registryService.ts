@@ -5,7 +5,7 @@
 import { getContractAddresses, getCurrentNetwork } from "@/config/contracts";
 import { INHERITANCE_REGISTRY_ABI } from "@/config/abi/inheritanceRegistry";
 import { ERC20_ABI } from "@/config/abi/erc20";
-import { SELF_HUMAN_VERIFIER_ABI } from "@/config/abi/selfHumanVerifier";
+import { MOCK_SELF_VERIFIER_ABI, SELF_HUMAN_VERIFIER_ABI } from "@/config/abi/selfHumanVerifier";
 import {
   Address,
   Hex,
@@ -15,7 +15,7 @@ import {
   formatEther,
   http,
 } from "viem";
-import { hardhat, mainnet, sepolia } from "viem/chains";
+import { baseSepolia, hardhat, mainnet, sepolia, zkSyncSepoliaTestnet } from "viem/chains";
 
 export interface WillRecord {
   owner: Address;
@@ -29,17 +29,15 @@ export interface WillRecord {
   vetoCount: number;
   executed: boolean;
   exists: boolean;
+  inactivityPeriod: bigint;
+  gracePeriod: bigint;
+  vetoThreshold: number;
+  vetoMembers: Address[];
 }
 
 export interface MyWill {
   commitment: Hex;
   will: WillRecord;
-}
-
-export interface GraceConfig {
-  inactivityPeriod: bigint;
-  gracePeriod: bigint;
-  vetoThreshold: bigint;
 }
 
 function toWillRecord(raw: any): WillRecord {
@@ -55,6 +53,10 @@ function toWillRecord(raw: any): WillRecord {
     vetoCount: Number(raw.vetoCount),
     executed: raw.executed,
     exists: raw.exists,
+    inactivityPeriod: raw.inactivityPeriod,
+    gracePeriod: raw.gracePeriod,
+    vetoThreshold: Number(raw.vetoThreshold),
+    vetoMembers: raw.vetoMembers,
   };
 }
 
@@ -79,6 +81,10 @@ class RegistryService {
         return hardhat;
       case 11155111:
         return sepolia;
+      case 84532:
+        return baseSepolia;
+      case 300:
+        return zkSyncSepoliaTestnet;
       case 1:
         return mainnet;
       default:
@@ -144,6 +150,26 @@ class RegistryService {
     }
   }
 
+  /**
+   * Testnet-only: mark an address verified on MockSelfVerifier, which has no
+   * access control (setVerified is permissionless by design as a test double).
+   * Only meaningful when getCurrentNetwork().selfVerifierIsMock is true — the
+   * real Self hub has no such function and this call would simply fail there.
+   */
+  async mockVerifySelf(address: Address): Promise<Hex> {
+    if (!this.walletClient) throw new Error("Wallet not connected");
+    const hash = (await this.walletClient.writeContract({
+      address: this.selfVerifierAddress,
+      abi: MOCK_SELF_VERIFIER_ABI,
+      functionName: "setVerified",
+      args: [address, true],
+      account: this.walletClient.account,
+      chain: this.walletClient.chain,
+    })) as Hex;
+    await this.waitForTransaction(hash);
+    return hash;
+  }
+
   async isSelfVerified(address: Address): Promise<boolean> {
     return (await this.publicClient.readContract({
       address: this.selfVerifierAddress,
@@ -153,42 +179,13 @@ class RegistryService {
     })) as boolean;
   }
 
-  async isVetoMember(address: Address): Promise<boolean> {
+  async isVetoMemberOf(commitment: Hex, who: Address): Promise<boolean> {
     return (await this.publicClient.readContract({
       address: this.registryAddress,
       abi: INHERITANCE_REGISTRY_ABI,
-      functionName: "isVetoMember",
-      args: [address],
+      functionName: "isVetoMemberOf",
+      args: [commitment, who],
     })) as boolean;
-  }
-
-  async getVetoMembers(): Promise<Address[]> {
-    return (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: INHERITANCE_REGISTRY_ABI,
-      functionName: "getVetoMembers",
-    })) as Address[];
-  }
-
-  async getGraceConfig(): Promise<GraceConfig> {
-    const [inactivityPeriod, gracePeriod, vetoThreshold] = await Promise.all([
-      this.publicClient.readContract({
-        address: this.registryAddress,
-        abi: INHERITANCE_REGISTRY_ABI,
-        functionName: "inactivityPeriod",
-      }),
-      this.publicClient.readContract({
-        address: this.registryAddress,
-        abi: INHERITANCE_REGISTRY_ABI,
-        functionName: "gracePeriod",
-      }),
-      this.publicClient.readContract({
-        address: this.registryAddress,
-        abi: INHERITANCE_REGISTRY_ABI,
-        functionName: "vetoThreshold",
-      }),
-    ]);
-    return { inactivityPeriod, gracePeriod, vetoThreshold } as GraceConfig;
   }
 
   async getWill(commitment: Hex): Promise<WillRecord> {
@@ -208,13 +205,10 @@ class RegistryService {
    */
   async getAllWills(): Promise<MyWill[]> {
     const currentBlock = await this.publicClient.getBlockNumber();
-    // Scan from genesis by default. Once the registry has a real deployment,
-    // set NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK so this doesn't rescan the whole
-    // chain — most RPC providers don't restrict eth_getLogs range when a
-    // specific contract address is given, so this is safe pre-deployment.
-    const deployBlock = process.env.NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK
-      ? BigInt(process.env.NEXT_PUBLIC_REGISTRY_DEPLOY_BLOCK)
-      : 0n;
+    // Scan from the current network's deploy block (falls back to genesis
+    // if unset) — most RPC providers don't restrict eth_getLogs range when a
+    // specific contract address is given, so 0n is safe, just slower.
+    const deployBlock = getCurrentNetwork().deployBlock;
 
     let logs;
     try {
@@ -263,7 +257,11 @@ class RegistryService {
     commitment: Hex,
     merkleRoot: bigint,
     totalEthWei: bigint,
-    totalUsdcBaseUnits: bigint
+    totalUsdcBaseUnits: bigint,
+    inactivityPeriod: bigint,
+    gracePeriod: bigint,
+    vetoMembers: Address[],
+    vetoThreshold: bigint
   ): Promise<Hex> {
     if (!this.walletClient) throw new Error("Wallet not connected");
 
@@ -283,7 +281,17 @@ class RegistryService {
       address: this.registryAddress,
       abi: INHERITANCE_REGISTRY_ABI,
       functionName: "register",
-      args: [commitment, merkleRoot, totalEthWei, totalUsdcBaseUnits, 0n],
+      args: [
+        commitment,
+        merkleRoot,
+        totalEthWei,
+        totalUsdcBaseUnits,
+        0n,
+        inactivityPeriod,
+        gracePeriod,
+        vetoMembers,
+        vetoThreshold,
+      ],
       value: totalEthWei,
       account: this.walletClient.account,
       chain: this.walletClient.chain,

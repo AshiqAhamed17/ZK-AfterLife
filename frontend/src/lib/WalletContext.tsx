@@ -1,7 +1,7 @@
 // frontend/src/lib/WalletContext.tsx
 'use client';
 
-import { registryService, type WillRecord, type MyWill, type GraceConfig } from '@/services/registryService';
+import { registryService, type WillRecord, type MyWill } from '@/services/registryService';
 import { NoirService } from '@/services/noirService';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Address, Hex } from 'viem';
@@ -15,14 +15,22 @@ interface WalletContextType {
   disconnectWallet: () => void;
 
   isSelfVerified: (address: Address) => Promise<boolean>;
-  isVetoMember: (address: Address) => Promise<boolean>;
-  getVetoMembers: () => Promise<Address[]>;
-  getGraceConfig: () => Promise<GraceConfig>;
+  mockVerifySelf: (address: Address) => Promise<Hex>;
+  isVetoMemberOf: (commitment: Hex, who: Address) => Promise<boolean>;
   getWill: (commitment: Hex) => Promise<WillRecord>;
   getAllWills: () => Promise<MyWill[]>;
   getMyWill: (owner: Address) => Promise<MyWill | null>;
 
-  register: (commitment: Hex, merkleRoot: bigint, totalEthWei: bigint, totalUsdcBaseUnits: bigint) => Promise<Hex>;
+  register: (
+    commitment: Hex,
+    merkleRoot: bigint,
+    totalEthWei: bigint,
+    totalUsdcBaseUnits: bigint,
+    inactivityPeriod: bigint,
+    gracePeriod: bigint,
+    vetoMembers: Address[],
+    vetoThreshold: bigint
+  ) => Promise<Hex>;
   checkIn: (commitment: Hex) => Promise<Hex>;
   triggerGracePeriod: (commitment: Hex) => Promise<Hex>;
   veto: (commitment: Hex) => Promise<Hex>;
@@ -140,9 +148,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   };
 
   const isSelfVerified = async (address: Address) => registryService.isSelfVerified(address);
-  const isVetoMember = async (address: Address) => registryService.isVetoMember(address);
-  const getVetoMembers = async () => registryService.getVetoMembers();
-  const getGraceConfig = async () => registryService.getGraceConfig();
+
+  const mockVerifySelf = async (address: Address): Promise<Hex> => {
+    if (!isConnected) throw new Error('Wallet not connected');
+    setIsLoading(true);
+    setError(null);
+    try {
+      return await registryService.mockVerifySelf(address);
+    } catch (err) {
+      console.error('Failed to mock-verify self:', err);
+      setError(err instanceof Error ? err.message : 'Failed to verify. Please try again.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isVetoMemberOf = async (commitment: Hex, who: Address) =>
+    registryService.isVetoMemberOf(commitment, who);
   const getWill = async (commitment: Hex) => registryService.getWill(commitment);
   const getAllWills = async () => registryService.getAllWills();
   const getMyWill = async (owner: Address) => registryService.getMyWill(owner);
@@ -151,13 +174,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     commitment: Hex,
     merkleRoot: bigint,
     totalEthWei: bigint,
-    totalUsdcBaseUnits: bigint
+    totalUsdcBaseUnits: bigint,
+    inactivityPeriod: bigint,
+    gracePeriod: bigint,
+    vetoMembers: Address[],
+    vetoThreshold: bigint
   ): Promise<Hex> => {
     if (!isConnected) throw new Error('Wallet not connected');
     setIsLoading(true);
     setError(null);
     try {
-      const hash = await registryService.register(commitment, merkleRoot, totalEthWei, totalUsdcBaseUnits);
+      const hash = await registryService.register(
+        commitment,
+        merkleRoot,
+        totalEthWei,
+        totalUsdcBaseUnits,
+        inactivityPeriod,
+        gracePeriod,
+        vetoMembers,
+        vetoThreshold
+      );
       await registryService.waitForTransaction(hash);
       return hash;
     } catch (err) {
@@ -267,9 +303,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     connectWallet,
     disconnectWallet,
     isSelfVerified,
-    isVetoMember,
-    getVetoMembers,
-    getGraceConfig,
+    mockVerifySelf,
+    isVetoMemberOf,
     getWill,
     getAllWills,
     getMyWill,
