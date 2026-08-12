@@ -32,8 +32,8 @@ contract InheritanceRegistryTest is Test {
     address internal bob = makeAddr("bob"); // veto member
     address internal anyone = makeAddr("anyone");
 
-    uint256 internal constant INACTIVITY = 30;
-    uint256 internal constant GRACE = 15;
+    uint256 internal constant INACTIVITY = 60;
+    uint256 internal constant GRACE = 60;
     uint256 internal constant VETO_THRESHOLD = 1;
 
     // A well-formed (but not proof-backed) will used for register/lifecycle tests.
@@ -94,14 +94,21 @@ contract InheritanceRegistryTest is Test {
         require(pi[4] == 0, "fixture must be nft=0");
     }
 
-    /// Register the fixture-backed will as `owner` (totals match the proof).
-    function _registerFixtureWill() internal {
-        address[] memory members = new address[](2);
+    /// This registry's default two-member committee used by most tests.
+    function _defaultVetoMembers() internal view returns (address[] memory members) {
+        members = new address[](2);
         members[0] = alice;
         members[1] = bob;
+    }
+
+    /// Register the fixture-backed will as `owner` (totals match the proof).
+    function _registerFixtureWill() internal {
         vm.startPrank(owner);
         usdc.approve(address(registry), fxUsdc);
-        registry.register{value: fxEth}(fxCommitment, fxRoot, fxEth, fxUsdc, 0, INACTIVITY, GRACE, members, VETO_THRESHOLD);
+        registry.register{value: fxEth}(
+            fxCommitment, fxRoot, fxEth, fxUsdc, 0,
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
+        );
         vm.stopPrank();
     }
 
@@ -161,9 +168,6 @@ contract InheritanceRegistryTest is Test {
 
     /// Register the standard test will as `owner`. Returns nothing; reverts propagate.
     function _register() internal {
-        address[] memory members = new address[](2);
-        members[0] = alice;
-        members[1] = bob;
         vm.startPrank(owner);
         usdc.approve(address(registry), TOTAL_USDC);
         registry.register{value: TOTAL_ETH}(
@@ -174,7 +178,7 @@ contract InheritanceRegistryTest is Test {
             0,
             INACTIVITY,
             GRACE,
-            members,
+            _defaultVetoMembers(),
             VETO_THRESHOLD
         );
         vm.stopPrank();
@@ -199,17 +203,16 @@ contract InheritanceRegistryTest is Test {
     }
 
     function test_RegisterRevertsIfNotVerified() public {
-        address[] memory members = new address[](1);
-        members[0] = alice;
         vm.deal(anyone, 100 ether);
         vm.prank(anyone);
         vm.expectRevert(InheritanceRegistry.NotVerifiedHuman.selector);
-        registry.register{value: TOTAL_ETH}(COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0, INACTIVITY, GRACE, members, 1);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
+        );
     }
 
     function test_RegisterRevertsOnEthMismatch() public {
-        address[] memory members = new address[](1);
-        members[0] = alice;
         vm.startPrank(owner);
         usdc.approve(address(registry), TOTAL_USDC);
         vm.expectRevert(InheritanceRegistry.EthDepositMismatch.selector);
@@ -219,42 +222,40 @@ contract InheritanceRegistryTest is Test {
             TOTAL_ETH,
             TOTAL_USDC,
             0,
-            INACTIVITY,
-            GRACE,
-            members,
-            1
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
         );
         vm.stopPrank();
     }
 
     function test_RegisterRevertsOnNfts() public {
-        address[] memory members = new address[](1);
-        members[0] = alice;
         vm.prank(owner);
         vm.expectRevert(InheritanceRegistry.NftsNotSupported.selector);
-        registry.register{value: TOTAL_ETH}(COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 1, INACTIVITY, GRACE, members, 1);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 1,
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
+        );
     }
 
     function test_RegisterRevertsOnZeroMerkleRoot() public {
-        address[] memory members = new address[](1);
-        members[0] = alice;
         vm.prank(owner);
         vm.expectRevert(InheritanceRegistry.InvalidMerkleRoot.selector);
-        registry.register{value: TOTAL_ETH}(COMMITMENT, 0, TOTAL_ETH, 0, 0, INACTIVITY, GRACE, members, 1);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, 0, TOTAL_ETH, 0, 0,
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
+        );
     }
 
     function test_RegisterRevertsOnEmptyWill() public {
-        address[] memory members = new address[](1);
-        members[0] = alice;
         vm.prank(owner);
         vm.expectRevert(InheritanceRegistry.EmptyWill.selector);
-        registry.register{value: 0}(COMMITMENT, MERKLE_ROOT, 0, 0, 0, INACTIVITY, GRACE, members, 1);
+        registry.register{value: 0}(
+            COMMITMENT, MERKLE_ROOT, 0, 0, 0,
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
+        );
     }
 
     function test_RegisterRevertsOnDuplicate() public {
         _register();
-        address[] memory members = new address[](1);
-        members[0] = alice;
         vm.startPrank(owner);
         usdc.approve(address(registry), TOTAL_USDC);
         vm.expectRevert(InheritanceRegistry.WillAlreadyRegistered.selector);
@@ -264,17 +265,12 @@ contract InheritanceRegistryTest is Test {
             TOTAL_ETH,
             TOTAL_USDC,
             0,
-            INACTIVITY,
-            GRACE,
-            members,
-            1
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
         );
         vm.stopPrank();
     }
 
     function test_RegisterRevertsIfUsdcNotApproved() public {
-        address[] memory members = new address[](1);
-        members[0] = alice;
         vm.startPrank(owner);
         // no approve()
         vm.expectRevert(); // SafeERC20 wraps the transferFrom failure
@@ -284,19 +280,17 @@ contract InheritanceRegistryTest is Test {
             TOTAL_ETH,
             TOTAL_USDC,
             0,
-            INACTIVITY,
-            GRACE,
-            members,
-            1
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
         );
         vm.stopPrank();
     }
 
     function test_RegisterEthOnlyWill() public {
-        address[] memory members = new address[](1);
-        members[0] = alice;
         vm.prank(owner);
-        registry.register{value: TOTAL_ETH}(COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0, INACTIVITY, GRACE, members, 1);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
+        );
         assertEq(address(registry).balance, TOTAL_ETH);
         assertEq(usdc.balanceOf(address(registry)), 0);
     }
@@ -323,6 +317,119 @@ contract InheritanceRegistryTest is Test {
             address(0), // zero poseidon t3
             address(poseidonT5)
         );
+    }
+
+    //////////////// REGISTER VALIDATION (per-will config) ////////////////
+
+    function test_RegisterRevertsOnShortInactivity() public {
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.InactivityPeriodTooShort.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            59, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
+        );
+    }
+
+    function test_RegisterRevertsOnShortGrace() public {
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.GracePeriodTooShort.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, 59, _defaultVetoMembers(), VETO_THRESHOLD
+        );
+    }
+
+    function test_RegisterRevertsOnInactivityOverflow() public {
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.InactivityPeriodOverflow.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            uint256(type(uint64).max) + 1, GRACE, _defaultVetoMembers(), VETO_THRESHOLD
+        );
+    }
+
+    function test_RegisterRevertsOnGraceOverflow() public {
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.GracePeriodOverflow.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, uint256(type(uint64).max) + 1, _defaultVetoMembers(), VETO_THRESHOLD
+        );
+    }
+
+    function test_RegisterRevertsOnZeroVetoMembers() public {
+        address[] memory empty = new address[](0);
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.NoVetoMembers.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, GRACE, empty, VETO_THRESHOLD
+        );
+    }
+
+    function test_RegisterRevertsOnTooManyVetoMembers() public {
+        address[] memory tooMany = new address[](9);
+        for (uint256 i = 0; i < 9; i++) {
+            tooMany[i] = address(uint160(i + 1));
+        }
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.TooManyVetoMembers.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, GRACE, tooMany, 1
+        );
+    }
+
+    function test_RegisterRevertsOnBadVetoThreshold() public {
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.InvalidVetoThreshold.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, GRACE, _defaultVetoMembers(), 3 // > 2 members
+        );
+    }
+
+    function test_RegisterRevertsOnZeroAddressVetoMember() public {
+        address[] memory members = new address[](1);
+        members[0] = address(0);
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.ZeroAddressVeto.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, GRACE, members, 1
+        );
+    }
+
+    function test_RegisterRevertsOnDuplicateVetoMember() public {
+        address[] memory members = new address[](2);
+        members[0] = alice;
+        members[1] = alice;
+        vm.prank(owner);
+        vm.expectRevert(InheritanceRegistry.DuplicateVetoMember.selector);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, 0, 0,
+            INACTIVITY, GRACE, members, 1
+        );
+    }
+
+    /// The headline behavior change: a will's committee only covers that will.
+    function test_VetoCommitteeIsScopedPerWill() public {
+        _registerFixtureWill(); // committee is [alice, bob]
+        assertTrue(registry.isVetoMemberOf(fxCommitment, alice), "alice is on fixture will's committee");
+        assertFalse(registry.isVetoMemberOf(fxCommitment, anyone), "anyone is not");
+
+        address[] memory otherMembers = new address[](1);
+        otherMembers[0] = anyone;
+        vm.startPrank(owner);
+        usdc.approve(address(registry), TOTAL_USDC);
+        registry.register{value: TOTAL_ETH}(
+            COMMITMENT, MERKLE_ROOT, TOTAL_ETH, TOTAL_USDC, 0,
+            INACTIVITY, GRACE, otherMembers, 1
+        );
+        vm.stopPrank();
+
+        assertTrue(registry.isVetoMemberOf(COMMITMENT, anyone), "anyone is on the second will's committee");
+        assertFalse(registry.isVetoMemberOf(COMMITMENT, alice), "alice is not on the second will's committee");
     }
 
     //////////////// EXECUTE ////////////////
@@ -366,9 +473,6 @@ contract InheritanceRegistryTest is Test {
     function test_ExecuteRevertsOnWrongStoredTotals() public {
         // Register the fixture commitment/root but with a total that does not
         // match the proof's public inputs; the real proof must not verify.
-        address[] memory members = new address[](2);
-        members[0] = alice;
-        members[1] = bob;
         vm.startPrank(owner);
         usdc.approve(address(registry), fxUsdc);
         registry.register{value: fxEth + 1}(
@@ -379,7 +483,7 @@ contract InheritanceRegistryTest is Test {
             0,
             INACTIVITY,
             GRACE,
-            members,
+            _defaultVetoMembers(),
             VETO_THRESHOLD
         );
         vm.stopPrank();
