@@ -32,8 +32,9 @@ interface ISelfHumanVerifier {
  * Design: docs/superpowers/specs/2026-08-09-inheritance-registry-design.md
  *
  * This contract owns per-will liveness state (there is no external heartbeat),
- * uses a single global veto committee set at construction, and accepts only
- * ETH + ERC20 wills in V1 (NFTs rejected; deferred to a 1.5 follow-up).
+ * gives each will its own trusted veto committee fixed at registration, and
+ * accepts only ETH + ERC20 wills in V1 (NFTs rejected; deferred to a 1.5
+ * follow-up).
  *
  * Boxes in this file:
  *   - register (Phase 1c box 1): implemented below.
@@ -143,7 +144,9 @@ contract InheritanceRegistry is ReentrancyGuard {
     error InvalidToken();
     error InvalidPoseidon();
     error InactivityPeriodTooShort();
+    error InactivityPeriodOverflow();
     error GracePeriodTooShort();
+    error GracePeriodOverflow();
     error NoVetoMembers();
     error TooManyVetoMembers();
     error InvalidVetoThreshold();
@@ -239,7 +242,9 @@ contract InheritanceRegistry is ReentrancyGuard {
         if (totalEth == 0 && totalUsdc == 0) revert EmptyWill();
         if (msg.value != totalEth) revert EthDepositMismatch();
         if (inactivityPeriod < MIN_INACTIVITY_PERIOD) revert InactivityPeriodTooShort();
+        if (inactivityPeriod > type(uint64).max) revert InactivityPeriodOverflow();
         if (gracePeriod < MIN_GRACE_PERIOD) revert GracePeriodTooShort();
+        if (gracePeriod > type(uint64).max) revert GracePeriodOverflow();
         if (vetoMembers.length == 0) revert NoVetoMembers();
         if (vetoMembers.length > MAX_VETO_MEMBERS) revert TooManyVetoMembers();
         if (vetoThreshold == 0 || vetoThreshold > vetoMembers.length) {
