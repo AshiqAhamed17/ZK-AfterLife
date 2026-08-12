@@ -37,19 +37,12 @@ contract DeployLocalE2EScript is Script {
         address poseidonT3 = PoseidonDeployer.deploy(t3code);
         address poseidonT5 = PoseidonDeployer.deploy(t5code);
 
-        address[] memory vetoMembers = new address[](1);
-        vetoMembers[0] = deployer;
-
         InheritanceRegistry registry = new InheritanceRegistry(
             address(willVerifier),
             address(self),
             address(usdc),
             poseidonT3,
-            poseidonT5,
-            inactivity,
-            grace,
-            vetoMembers,
-            1
+            poseidonT5
         );
 
         self.setVerified(owner, true);

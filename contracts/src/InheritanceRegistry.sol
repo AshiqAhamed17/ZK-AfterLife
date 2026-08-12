@@ -58,7 +58,23 @@ contract InheritanceRegistry is ReentrancyGuard {
         uint32 vetoCount; // vetoes cast in the current epoch
         bool executed;
         bool exists;
+        uint64 inactivityPeriod; // seconds of owner inactivity before grace can be triggered
+        uint64 gracePeriod; // grace buffer (seconds) after inactivity during which vetoes apply
+        uint8 vetoThreshold; // minimum vetoes that cancel a grace period ("false alarm")
+        address[] vetoMembers; // this will's own trusted circle, fixed at registration
     }
+
+    ////////////// CONSTANTS //////////////
+
+    /// @notice Floor on owner-chosen inactivity/grace periods — guards against
+    ///         an accidental or malicious near-zero window, not a realistic
+    ///         default (real wills should choose months/years).
+    uint256 public constant MIN_INACTIVITY_PERIOD = 60;
+    uint256 public constant MIN_GRACE_PERIOD = 60;
+
+    /// @notice Cap on a will's veto committee size, matching the beneficiary
+    ///         cap, so register()/veto() gas cost stays bounded and predictable.
+    uint256 public constant MAX_VETO_MEMBERS = 8;
 
     ////////////// IMMUTABLES //////////////
 
@@ -77,23 +93,13 @@ contract InheritanceRegistry is ReentrancyGuard {
     /// @notice Poseidon hash_4 (t=5), circomlib-compatible with the will circuit.
     IPoseidonT5 public immutable poseidonT5;
 
-    /// @notice Seconds of owner inactivity before grace can be triggered.
-    uint256 public immutable inactivityPeriod;
-
-    /// @notice Grace buffer (seconds) after inactivity during which vetoes apply.
-    uint256 public immutable gracePeriod;
-
-    /// @notice Minimum vetoes that cancel a grace period ("false alarm").
-    uint256 public immutable vetoThreshold;
-
     ////////////// STORAGE //////////////
 
-    /// @notice will commitment => will record.
-    mapping(bytes32 => Will) public wills;
-
-    /// @notice Global veto committee membership.
-    mapping(address => bool) public isVetoMember;
-    address[] private _vetoMembers;
+    /// @notice will commitment => will record. Private: `Will` now contains a
+    ///         dynamic array member, which Solidity's auto-generated public
+    ///         getter would silently drop from its return tuple. `getWill()`
+    ///         below is the only supported read path.
+    mapping(bytes32 => Will) private wills;
 
     /// @notice commitment => graceEpoch => member => already vetoed this round.
     mapping(bytes32 => mapping(uint32 => mapping(address => bool)))
@@ -136,9 +142,10 @@ contract InheritanceRegistry is ReentrancyGuard {
     error InvalidSelfVerifier();
     error InvalidToken();
     error InvalidPoseidon();
-    error InvalidInactivityPeriod();
-    error InvalidGracePeriod();
+    error InactivityPeriodTooShort();
+    error GracePeriodTooShort();
     error NoVetoMembers();
+    error TooManyVetoMembers();
     error InvalidVetoThreshold();
     error ZeroAddressVeto();
     error DuplicateVetoMember();
@@ -176,11 +183,7 @@ contract InheritanceRegistry is ReentrancyGuard {
         address _selfVerifier,
         address _usdc,
         address _poseidonT3,
-        address _poseidonT5,
-        uint256 _inactivityPeriod,
-        uint256 _gracePeriod,
-        address[] memory _vetoMemberList,
-        uint256 _vetoThreshold
+        address _poseidonT5
     ) {
         if (_willVerifier == address(0)) revert InvalidVerifier();
         if (_selfVerifier == address(0)) revert InvalidSelfVerifier();
@@ -188,52 +191,46 @@ contract InheritanceRegistry is ReentrancyGuard {
         if (_poseidonT3 == address(0) || _poseidonT5 == address(0)) {
             revert InvalidPoseidon();
         }
-        if (_inactivityPeriod == 0) revert InvalidInactivityPeriod();
-        if (_gracePeriod == 0) revert InvalidGracePeriod();
-        if (_vetoMemberList.length == 0) revert NoVetoMembers();
-        if (_vetoThreshold == 0 || _vetoThreshold > _vetoMemberList.length) {
-            revert InvalidVetoThreshold();
-        }
 
         willVerifier = IWillVerifier(_willVerifier);
         selfVerifier = ISelfHumanVerifier(_selfVerifier);
         usdc = IERC20(_usdc);
         poseidonT3 = IPoseidonT3(_poseidonT3);
         poseidonT5 = IPoseidonT5(_poseidonT5);
-        inactivityPeriod = _inactivityPeriod;
-        gracePeriod = _gracePeriod;
-        vetoThreshold = _vetoThreshold;
-
-        for (uint256 i = 0; i < _vetoMemberList.length; i++) {
-            address member = _vetoMemberList[i];
-            if (member == address(0)) revert ZeroAddressVeto();
-            if (isVetoMember[member]) revert DuplicateVetoMember();
-            isVetoMember[member] = true;
-            _vetoMembers.push(member);
-        }
     }
 
-    ////////////// REGISTER (box 1) //////////////
-
     /**
-     * @notice Seal a will: escrow ETH + USDC equal to the declared totals and
-     *         record the commitment, Merkle root, and totals. Self-gated.
+     * @notice Seal a will: escrow ETH + USDC equal to the declared totals,
+     *         record the commitment/Merkle root/totals, and set this will's
+     *         own inactivity period, grace period, and trusted veto circle.
+     *         Self-gated.
      * @dev The caller must have deposited exactly `totalEth` as msg.value and
      *      pre-approved `totalUsdc` to this contract. NFTs are not supported in
-     *      V1, so `totalNftCount` must be 0.
+     *      V1, so `totalNftCount` must be 0. `vetoMembers`/`vetoThreshold` are
+     *      fixed for this will's lifetime — there is no update function.
      * @param willCommitment Poseidon commitment of the will payload + salt (a
      *        BN254 field element), used as the will's key.
      * @param merkleRoot Poseidon Merkle root over the beneficiary leaves.
      * @param totalEth Declared total ETH allocation (must equal msg.value).
      * @param totalUsdc Declared total USDC allocation (pulled via transferFrom).
      * @param totalNftCount Declared NFT count; must be 0 in V1.
+     * @param inactivityPeriod Seconds of inactivity before grace can be triggered;
+     *        must be >= MIN_INACTIVITY_PERIOD.
+     * @param gracePeriod Grace buffer in seconds; must be >= MIN_GRACE_PERIOD.
+     * @param vetoMembers This will's trusted circle (1-MAX_VETO_MEMBERS addresses,
+     *        no zero address, no duplicates).
+     * @param vetoThreshold Vetoes needed to cancel a grace period; 1-vetoMembers.length.
      */
     function register(
         bytes32 willCommitment,
         uint256 merkleRoot,
         uint256 totalEth,
         uint256 totalUsdc,
-        uint256 totalNftCount
+        uint256 totalNftCount,
+        uint256 inactivityPeriod,
+        uint256 gracePeriod,
+        address[] calldata vetoMembers,
+        uint256 vetoThreshold
     ) external payable {
         if (!selfVerifier.isFullyVerified(msg.sender)) revert NotVerifiedHuman();
         if (wills[willCommitment].exists) revert WillAlreadyRegistered();
@@ -241,6 +238,23 @@ contract InheritanceRegistry is ReentrancyGuard {
         if (totalNftCount != 0) revert NftsNotSupported();
         if (totalEth == 0 && totalUsdc == 0) revert EmptyWill();
         if (msg.value != totalEth) revert EthDepositMismatch();
+        if (inactivityPeriod < MIN_INACTIVITY_PERIOD) revert InactivityPeriodTooShort();
+        if (gracePeriod < MIN_GRACE_PERIOD) revert GracePeriodTooShort();
+        if (vetoMembers.length == 0) revert NoVetoMembers();
+        if (vetoMembers.length > MAX_VETO_MEMBERS) revert TooManyVetoMembers();
+        if (vetoThreshold == 0 || vetoThreshold > vetoMembers.length) {
+            revert InvalidVetoThreshold();
+        }
+
+        address[] memory members = new address[](vetoMembers.length);
+        for (uint256 i = 0; i < vetoMembers.length; i++) {
+            address member = vetoMembers[i];
+            if (member == address(0)) revert ZeroAddressVeto();
+            for (uint256 j = 0; j < i; j++) {
+                if (members[j] == member) revert DuplicateVetoMember();
+            }
+            members[i] = member;
+        }
 
         wills[willCommitment] = Will({
             owner: msg.sender,
@@ -253,7 +267,11 @@ contract InheritanceRegistry is ReentrancyGuard {
             graceEpoch: 0,
             vetoCount: 0,
             executed: false,
-            exists: true
+            exists: true,
+            inactivityPeriod: uint64(inactivityPeriod),
+            gracePeriod: uint64(gracePeriod),
+            vetoThreshold: uint8(vetoThreshold),
+            vetoMembers: members
         });
 
         // Interaction last. Pulls exactly the declared USDC total (no-op if 0).
@@ -285,13 +303,13 @@ contract InheritanceRegistry is ReentrancyGuard {
     }
 
     /// @notice Anyone may open the grace period once the owner has been inactive
-    ///         for `inactivityPeriod`.
+    ///         for this will's own `inactivityPeriod`.
     function triggerGracePeriod(bytes32 willCommitment) external {
         Will storage w = wills[willCommitment];
         if (!w.exists) revert WillNotRegistered();
         if (w.executed) revert WillAlreadyExecuted();
         if (w.graceStart != 0) revert GraceAlreadyActive();
-        if (block.timestamp <= uint256(w.lastCheckIn) + inactivityPeriod) {
+        if (block.timestamp <= uint256(w.lastCheckIn) + w.inactivityPeriod) {
             revert StillActive();
         }
 
@@ -299,20 +317,21 @@ contract InheritanceRegistry is ReentrancyGuard {
         emit GraceStarted(
             willCommitment,
             block.timestamp,
-            block.timestamp + gracePeriod
+            block.timestamp + w.gracePeriod
         );
     }
 
-    /// @notice A veto member blocks a premature execution during the grace
-    ///         window. Reaching `vetoThreshold` is treated as a confirmed false
-    ///         alarm: grace is cancelled and the inactivity clock restarts.
+    /// @notice A member of this will's own trusted circle blocks a premature
+    ///         execution during the grace window. Reaching `vetoThreshold` is
+    ///         treated as a confirmed false alarm: grace is cancelled and the
+    ///         inactivity clock restarts.
     function veto(bytes32 willCommitment) external {
-        if (!isVetoMember[msg.sender]) revert NotVetoMember();
         Will storage w = wills[willCommitment];
         if (!w.exists) revert WillNotRegistered();
+        if (!_isVetoMemberOf(w, msg.sender)) revert NotVetoMember();
         if (w.executed) revert WillAlreadyExecuted();
         if (w.graceStart == 0) revert GraceNotStarted();
-        if (block.timestamp > uint256(w.graceStart) + gracePeriod) {
+        if (block.timestamp > uint256(w.graceStart) + w.gracePeriod) {
             revert GracePeriodOver();
         }
         if (hasVetoed[willCommitment][w.graceEpoch][msg.sender]) {
@@ -323,7 +342,7 @@ contract InheritanceRegistry is ReentrancyGuard {
         w.vetoCount += 1;
         emit Vetoed(willCommitment, msg.sender, w.vetoCount);
 
-        if (w.vetoCount >= vetoThreshold) {
+        if (w.vetoCount >= w.vetoThreshold) {
             w.graceStart = 0;
             w.vetoCount = 0;
             w.graceEpoch += 1;
@@ -332,16 +351,20 @@ contract InheritanceRegistry is ReentrancyGuard {
         }
     }
 
-    /// @notice Execute a will after the grace period elapses with no threshold
-    ///         veto. Permissionless: the proof + stored public inputs are the
-    ///         authority, not the caller. Verifies a real UltraHonk proof and
-    ///         marks the will executable. Funds move at `claim` (box 3).
+    /// @notice Linear scan of a will's own (<=8-member) trusted circle.
+    function _isVetoMemberOf(Will storage w, address who) internal view returns (bool) {
+        for (uint256 i = 0; i < w.vetoMembers.length; i++) {
+            if (w.vetoMembers[i] == who) return true;
+        }
+        return false;
+    }
+
     function executeWill(bytes32 willCommitment, bytes calldata proof) external {
         Will storage w = wills[willCommitment];
         if (!w.exists) revert WillNotRegistered();
         if (w.executed) revert WillAlreadyExecuted();
         if (w.graceStart == 0) revert GraceNotStarted();
-        if (block.timestamp <= uint256(w.graceStart) + gracePeriod) {
+        if (block.timestamp <= uint256(w.graceStart) + w.gracePeriod) {
             revert GraceNotElapsed();
         }
 
@@ -425,13 +448,14 @@ contract InheritanceRegistry is ReentrancyGuard {
 
     ////////////// VIEWS //////////////
 
-    /// @notice Full will record for a commitment.
+    /// @notice Full will record for a commitment, including its own timing
+    ///         and trusted-circle configuration.
     function getWill(bytes32 willCommitment) external view returns (Will memory) {
         return wills[willCommitment];
     }
 
-    /// @notice The global veto committee.
-    function getVetoMembers() external view returns (address[] memory) {
-        return _vetoMembers;
+    /// @notice Whether `who` is on this specific will's trusted circle.
+    function isVetoMemberOf(bytes32 willCommitment, address who) external view returns (bool) {
+        return _isVetoMemberOf(wills[willCommitment], who);
     }
 }

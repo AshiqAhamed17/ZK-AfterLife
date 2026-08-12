@@ -45,11 +45,7 @@ contract DeployScript is Script {
             c.selfVerifier,
             c.usdc,
             poseidonT3,
-            poseidonT5,
-            c.inactivity,
-            c.grace,
-            vetoMembers,
-            c.vetoThreshold
+            poseidonT5
         );
 
         vm.stopBroadcast();
