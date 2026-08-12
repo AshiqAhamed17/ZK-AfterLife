@@ -249,7 +249,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 ### Phase 1e — Deploy + polish  ·  branch `phase-1e-deploy` - Use sonnet 5
 - [ ] Deploy to Sepolia. `(chore(deploy): sepolia)`
 - [ ] Deploy to zkSync Era Sepolia. `(chore(deploy): zksync)`
-- [ ] Deploy to Polygon zkEVM Cardona. `(chore(deploy): polygon)`
+- [ ] Deploy to Base
 - [ ] Live hosted frontend (Vercel) on a default testnet. `(chore(deploy): vercel)`
 - [ ] Architecture diagram + threat-model doc + demo video + README refresh. `(docs: v1)`
 - **Done when:** anyone can open the live app and complete a real will. **This is V1.**
