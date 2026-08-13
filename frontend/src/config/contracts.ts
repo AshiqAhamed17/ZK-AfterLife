@@ -26,16 +26,27 @@ export interface NetworkConfig {
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
-function contractsFor(prefix: string): ContractAddresses {
+// Next.js's build-time NEXT_PUBLIC_* inlining only rewrites statically
+// analyzable `process.env.NEXT_PUBLIC_X` member expressions — a dynamically
+// built key like `process.env[`NEXT_PUBLIC_${prefix}_X`]` is never replaced,
+// so in the browser bundle `process.env` doesn't carry it and every lookup
+// silently returns undefined. These two helpers take the already-resolved
+// (statically referenced) env values as arguments instead of building keys
+// at runtime, so each `NEXT_PUBLIC_*` var below must be referenced literally
+// at its call site.
+function contracts(
+  registry: string | undefined,
+  usdc: string | undefined,
+  selfVerifier: string | undefined
+): ContractAddresses {
   return {
-    inheritanceRegistry: process.env[`NEXT_PUBLIC_${prefix}_REGISTRY_ADDRESS`] || ZERO,
-    usdc: process.env[`NEXT_PUBLIC_${prefix}_USDC_ADDRESS`] || ZERO,
-    selfVerifier: process.env[`NEXT_PUBLIC_${prefix}_SELF_VERIFIER_ADDRESS`] || ZERO,
+    inheritanceRegistry: registry || ZERO,
+    usdc: usdc || ZERO,
+    selfVerifier: selfVerifier || ZERO,
   };
 }
 
-function deployBlockFor(prefix: string): bigint {
-  const raw = process.env[`NEXT_PUBLIC_${prefix}_DEPLOY_BLOCK`];
+function deployBlockOf(raw: string | undefined): bigint {
   return raw ? BigInt(raw) : 0n;
 }
 
@@ -45,9 +56,13 @@ export const NETWORKS: Record<string, NetworkConfig> = {
     name: "Localhost",
     rpcUrl: "http://localhost:8545",
     blockExplorer: "",
-    contracts: contractsFor("LOCALHOST"),
+    contracts: contracts(
+      process.env.NEXT_PUBLIC_LOCALHOST_REGISTRY_ADDRESS,
+      process.env.NEXT_PUBLIC_LOCALHOST_USDC_ADDRESS,
+      process.env.NEXT_PUBLIC_LOCALHOST_SELF_VERIFIER_ADDRESS
+    ),
     selfVerifierIsMock: true,
-    deployBlock: deployBlockFor("LOCALHOST"),
+    deployBlock: deployBlockOf(process.env.NEXT_PUBLIC_LOCALHOST_DEPLOY_BLOCK),
   },
   sepolia: {
     chainId: 11155111,
@@ -60,36 +75,52 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       "https://sepolia.gateway.tenderly.co",
     ].filter(Boolean) as string[],
     blockExplorer: "https://sepolia.etherscan.io",
-    contracts: contractsFor("SEPOLIA"),
+    contracts: contracts(
+      process.env.NEXT_PUBLIC_SEPOLIA_REGISTRY_ADDRESS,
+      process.env.NEXT_PUBLIC_SEPOLIA_USDC_ADDRESS,
+      process.env.NEXT_PUBLIC_SEPOLIA_SELF_VERIFIER_ADDRESS
+    ),
     selfVerifierIsMock: true,
-    deployBlock: deployBlockFor("SEPOLIA"),
+    deployBlock: deployBlockOf(process.env.NEXT_PUBLIC_SEPOLIA_DEPLOY_BLOCK),
   },
   baseSepolia: {
     chainId: 84532,
     name: "Base Sepolia",
     rpcUrl: process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
     blockExplorer: "https://sepolia.basescan.org",
-    contracts: contractsFor("BASE_SEPOLIA"),
+    contracts: contracts(
+      process.env.NEXT_PUBLIC_BASE_SEPOLIA_REGISTRY_ADDRESS,
+      process.env.NEXT_PUBLIC_BASE_SEPOLIA_USDC_ADDRESS,
+      process.env.NEXT_PUBLIC_BASE_SEPOLIA_SELF_VERIFIER_ADDRESS
+    ),
     selfVerifierIsMock: true,
-    deployBlock: deployBlockFor("BASE_SEPOLIA"),
+    deployBlock: deployBlockOf(process.env.NEXT_PUBLIC_BASE_SEPOLIA_DEPLOY_BLOCK),
   },
   zkSyncSepolia: {
     chainId: 300,
     name: "zkSync Era Sepolia",
     rpcUrl: process.env.NEXT_PUBLIC_ZKSYNC_SEPOLIA_RPC_URL || "https://sepolia.era.zksync.dev",
     blockExplorer: "https://sepolia.explorer.zksync.io",
-    contracts: contractsFor("ZKSYNC_SEPOLIA"),
+    contracts: contracts(
+      process.env.NEXT_PUBLIC_ZKSYNC_SEPOLIA_REGISTRY_ADDRESS,
+      process.env.NEXT_PUBLIC_ZKSYNC_SEPOLIA_USDC_ADDRESS,
+      process.env.NEXT_PUBLIC_ZKSYNC_SEPOLIA_SELF_VERIFIER_ADDRESS
+    ),
     selfVerifierIsMock: true,
-    deployBlock: deployBlockFor("ZKSYNC_SEPOLIA"),
+    deployBlock: deployBlockOf(process.env.NEXT_PUBLIC_ZKSYNC_SEPOLIA_DEPLOY_BLOCK),
   },
   mainnet: {
     chainId: 1,
     name: "Ethereum Mainnet",
     rpcUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || "https://ethereum-rpc.publicnode.com",
     blockExplorer: "https://etherscan.io",
-    contracts: contractsFor("MAINNET"),
+    contracts: contracts(
+      process.env.NEXT_PUBLIC_MAINNET_REGISTRY_ADDRESS,
+      process.env.NEXT_PUBLIC_MAINNET_USDC_ADDRESS,
+      process.env.NEXT_PUBLIC_MAINNET_SELF_VERIFIER_ADDRESS
+    ),
     selfVerifierIsMock: false,
-    deployBlock: deployBlockFor("MAINNET"),
+    deployBlock: deployBlockOf(process.env.NEXT_PUBLIC_MAINNET_DEPLOY_BLOCK),
   },
 };
 
