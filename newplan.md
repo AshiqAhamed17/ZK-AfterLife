@@ -225,7 +225,7 @@ Follows `design.md` §10 build order. Each box = one commit.
 - **Done when:** a real Noir proof verifies on-chain in a Foundry test. ✅
 
 ### Phase 1c — Registry + real distribution  ·  branch `phase-1c-registry` - Use Opus 4.8
-- [x] `InheritanceRegistry.sol`: register (Self-gated, deposit = totals). `(feat(contracts): registry register)` — per-will lifecycle state + global veto committee; deposit==totals (ETH via msg.value, USDC via safeTransferFrom); NFTs rejected in V1. 11 register/constructor tests pass.
+- [x] `InheritanceRegistry.sol`: register (Self-gated, deposit = totals). `(feat(contracts): registry register)` — per-will lifecycle state; deposit==totals (ETH via msg.value, USDC via safeTransferFrom); NFTs rejected in V1. 11 register/constructor tests pass. (Originally a single global veto committee set at deploy time; superseded below — see the per-will config note ahead of Phase 1e.)
 - [x] Execute (verify proof, Heartbeat-aware grace gate). `(feat(contracts): registry execute)` — checkIn/triggerGracePeriod/veto/executeWill; real UltraHonk proof verified on-chain via WillVerifier (~3.2M gas); veto-at-threshold cancels grace. 23 registry tests pass (30 total incl. verifier).
 - [x] Claim: per-beneficiary Merkle-inclusion → real ETH + ERC20 transfer. `(feat(contracts): registry claim)` — on-chain Poseidon (circomlibjs-generated, verified == noir) verifies inclusion against the ZK-proven merkleRoot; real ETH+USDC transfer, double-claim guarded. 38 tests pass incl. on-chain-tree==fixture-root + full drain.
 - [x] Delete redundant contracts (`NoirIntegration`/`AztecExecutor`/`L1AztecBridge`/`WillExecutor` + `L1Heartbeat`, absorbed into the registry). `(refactor(contracts): collapse)` — Deploy.s.sol rewritten for the registry stack; obsolete TestSelfIntegration script removed; PoseidonDeployer moved to src. Build + 38 tests green.
@@ -245,6 +245,36 @@ Follows `design.md` §10 build order. Each box = one commit.
   - `@aztec/bb.js` was pinned to `^1.2.1` and `@noir-lang/noir_js` to `^1.0.0-beta.10` — wildly mismatched with the beta.25 circuit and bb 5.1.0 native toolchain; in-browser proving was completely non-functional before this. Bumped both to exact-pinned versions matching the installed `nargo`/`bb` CLI (`1.0.0-beta.25` / `5.1.0`).
   - Confirmed via direct native-`bb`-CLI comparison: bb.js 5.1.0's browser/Node proving for the `evm` (ZK) target produces a proof of a different length than native `bb prove -t evm` for the identical circuit (458 vs 262 field elements) — a real upstream discrepancy. Its non-ZK target matches natively byte-for-byte, so `HonkVerifier.sol` (production) and `noirService.ts` were both regenerated/retargeted to `evm-no-zk`. Trade-off: loses the SNARK's own sumcheck-blinding property; no beneficiary/allocation data was ever a public input either way, so no privacy regression there. User-approved call — see conversation.
 - **Done when:** the deployed app performs a real end-to-end will with real proofs.
+
+### Interlude — Per-will config (timing + veto committee)  ·  done on `main`
+Phase 1e's testnet deploys were paused mid-kickoff: `inactivityPeriod`/`gracePeriod`/
+`vetoThreshold`/veto committee were still global, deploy-time constructor immutables
+shared by every will on a deployment — wrong for a real multi-user product, and
+worth fixing before deploying twice. Moved all four onto each will, chosen by its
+owner at `register()` time: each user picks their own liveness timing and names
+their own trusted circle, instead of sharing one global policy/committee with every
+stranger's will on that deployment. `(feat(contracts): move inactivity/grace/veto
+config to per-will register() params)` — `Will` struct gains `inactivityPeriod`/
+`gracePeriod`/`vetoThreshold`/`vetoMembers`; constructor shrinks to 5 dependency
+addresses; `MIN_INACTIVITY_PERIOD`/`MIN_GRACE_PERIOD` = 60s and `MAX_VETO_MEMBERS`
+= 8 are hardcoded floors/caps, not deploy-time params; veto committee is fixed at
+registration (no update function, ever — see design spec for why). `wills` mapping
+is now `private` (Solidity's auto-getter silently drops array-typed struct members;
+`getWill()` is the only read path). New `isVetoMemberOf(commitment, who)` view
+replaces the old global `getVetoMembers()`/`isVetoMember()`. Register wizard gained
+a "Trusted circle" step (timing + committee inputs); `veto` page now filters to
+only the wills a connected address can actually veto (a real behavior change from
+the old global-committee model, not just a refactor). Full contract test rewrite
+(43 tests) plus a real E2E harness run (register → prove → verify → claim) against
+local Anvil, twice, passing — which also caught and fixed a real, previously-shipped,
+all-networks-affecting bug: `config/contracts.ts` built `NEXT_PUBLIC_*` env var keys
+dynamically via template string, which Next.js's build-time static inlining can't
+rewrite, so every network's contract addresses were silently resolving to the zero
+address in the actual browser bundle. Design: `docs/superpowers/specs/
+2026-08-12-per-will-config-design.md`. Plan: `docs/superpowers/plans/
+2026-08-12-per-will-config.md`.
+- **Done when:** each will's owner controls their own timing and trusted circle,
+  proven by a passing per-will-scoped test and a real E2E run. ✅
 
 ### Phase 1e — Deploy + polish  ·  branch `phase-1e-deploy` - Use sonnet 5
 - [ ] Deploy to Sepolia. `(chore(deploy): sepolia)`
