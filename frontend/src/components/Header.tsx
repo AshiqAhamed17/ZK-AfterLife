@@ -23,8 +23,16 @@ function formatAddress(a: string) {
 }
 
 export default function Header() {
-  const { isConnected, account, balance, connectWallet, disconnectWallet, isLoading } =
-    useWallet();
+  const {
+    isConnected,
+    account,
+    balance,
+    connectWallet,
+    disconnectWallet,
+    isLoading,
+    isSupportedNetwork,
+    networkName,
+  } = useWallet();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -52,6 +60,12 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-hairline bg-bg/80 backdrop-blur">
+      {isConnected && !isSupportedNetwork ? (
+        <div className="border-b border-hairline bg-danger/10 px-6 py-2 text-center font-sans text-[13px] text-danger">
+          Wrong network{networkName ? ` (${networkName})` : ""} — switch your
+          wallet to Sepolia or Base Sepolia to use this app.
+        </div>
+      ) : null}
       <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-6">
         <Link
           href="/"

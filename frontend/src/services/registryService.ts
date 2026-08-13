@@ -40,6 +40,8 @@ export interface MyWill {
   will: WillRecord;
 }
 
+const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
+
 function toWillRecord(raw: any): WillRecord {
   return {
     owner: raw.owner,
@@ -122,6 +124,16 @@ class RegistryService {
     value?: bigint;
   }): Promise<Hex> {
     if (!this.walletClient) throw new Error("Wallet not connected");
+    // A call to an address with no contract code (like the zero address
+    // fallback in contracts.ts for undeployed networks) doesn't revert at
+    // the EVM level — it just returns success with empty data — so
+    // simulateContract below would NOT catch this and would happily hand
+    // back a request that sends a real transaction to the burn address.
+    if (params.address.toLowerCase() === ZERO_ADDRESS) {
+      throw new Error(
+        "No contract is deployed on the network your wallet is connected to. Switch MetaMask to Sepolia or Base Sepolia and try again."
+      );
+    }
     const { request } = await this.publicClient.simulateContract({
       ...params,
       account: this.walletClient.account,

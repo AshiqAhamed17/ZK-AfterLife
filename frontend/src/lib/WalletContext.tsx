@@ -3,6 +3,7 @@
 
 import { registryService, type WillRecord, type MyWill } from '@/services/registryService';
 import { NoirService } from '@/services/noirService';
+import { getNetworkByChainId } from '@/config/contracts';
 import { usePathname } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Address, Hex } from 'viem';
@@ -48,6 +49,9 @@ interface WalletContextType {
 
   isLoading: boolean;
   error: string | null;
+
+  isSupportedNetwork: boolean;
+  networkName: string | null;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -58,8 +62,23 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [balance, setBalance] = useState('0');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSupportedNetwork, setIsSupportedNetwork] = useState(true);
+  const [networkName, setNetworkName] = useState<string | null>(null);
 
   const noirService = new NoirService();
+
+  // Resolves the wallet's *actual* current chain against our deployed
+  // networks, independent of what registryService assumes. Without this,
+  // a wallet that drifted onto an unconfigured chain (e.g. MetaMask
+  // defaulting back to Mainnet after an unlock/account switch) gives no
+  // warning until a write silently resolves to the zero address.
+  const refreshNetworkStatus = () => {
+    if (typeof window === 'undefined' || !window.ethereum?.chainId) return;
+    const chainId = parseInt(window.ethereum.chainId as string, 16);
+    const network = getNetworkByChainId(chainId);
+    setIsSupportedNetwork(!!network);
+    setNetworkName(network?.name ?? null);
+  };
 
   // `error` is shared across every page via this one context. Without this,
   // a failed action's error message on one page (e.g. /execute) keeps
@@ -82,6 +101,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             const connectedAccount = accounts[0] as Address;
             setAccount(connectedAccount);
             setIsConnected(true);
+            refreshNetworkStatus();
             try {
               registryService.initializeWithProvider(connectedAccount);
             } catch (e) {
@@ -108,6 +128,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           const newAccount = accounts[0] as Address;
           setAccount(newAccount);
           setIsConnected(true);
+          refreshNetworkStatus();
           try {
             registryService.initializeWithProvider(newAccount);
           } catch (e) {
@@ -144,6 +165,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const connectedAccount = await registryService.connectWallet();
       setAccount(connectedAccount);
       setIsConnected(true);
+      refreshNetworkStatus();
       await updateBalance(connectedAccount);
     } catch (err) {
       console.error('Failed to connect wallet:', err);
@@ -330,6 +352,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     noirService,
     isLoading,
     error,
+    isSupportedNetwork,
+    networkName,
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

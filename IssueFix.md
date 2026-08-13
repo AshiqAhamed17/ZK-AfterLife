@@ -88,10 +88,74 @@ the raw salt.
 
 ---
 
+## i2 — Claim sends to the burn address, MetaMask blocks it, claim is impossible
+
+### Root cause
+
+`registryService`'s `registryAddress` / `usdcAddress` / `selfVerifierAddress`
+getters resolve through `getCurrentNetwork().contracts`, and
+`getCurrentNetwork()` (in `frontend/src/config/contracts.ts`) picks a network
+purely from **whatever chain the injected wallet currently reports**
+(`window.ethereum.chainId`) — it never checks whether that chain is one we've
+actually deployed to. `contracts.ts`'s `contracts()` helper silently falls
+back to the literal zero address (`0x000...000`) for any network whose
+`NEXT_PUBLIC_*_REGISTRY_ADDRESS` env var isn't set — which is true today for
+`mainnet` and `zkSyncSepolia` (not yet deployed). So if the wallet that
+clicks "Claim" happens to be on one of those chains — e.g. MetaMask defaults
+back to Ethereum Mainnet after a lock/unlock or a fresh account switch,
+which is exactly the kind of thing that happens when swapping to a
+beneficiary account mid-test — `this.registryAddress` silently resolves to
+the zero address instead of erroring.
+
+The `simulateThenWrite` helper added for i1 (Fix A) does **not** catch this,
+for a subtle but important reason: calling a **zero/no-code address** is not
+a revert at the EVM level — a call to an address with no contract code just
+returns success with empty return data. Since `claim()` has no return value
+to decode, `publicClient.simulateContract(...)` sees this as a clean
+success and happily hands back a `request` targeting `0x000...000`. viem
+then builds a real transaction to the zero address and hands it to
+MetaMask to sign — which is exactly what the report shows (`to:
+0x0000000000000000000000000000000000000000`). MetaMask's own burn-address
+heuristic is the only thing that stopped real ETH from being sent into the
+void; our app's safety net had a blind spot for this exact case.
+
+Contributing factor: `contracts.ts` already exports `isNetworkSupported()`
+and `getNetworkByChainId()` for exactly this kind of check, but nothing in
+the app ever calls them — there is no "wrong network" banner anywhere, so
+the user has no way to know their wallet drifted onto an unconfigured chain
+until a transaction is already in front of them in MetaMask.
+
+### Fix
+
+**D. `frontend/src/services/registryService.ts` — refuse to build a
+transaction to the zero address.** Add an explicit check at the top of
+`simulateThenWrite` (the single choke point every write already goes
+through) that throws a clear, actionable error — *before* calling
+`simulateContract` at all — if the target address is the zero address:
+"No contract is deployed on the network your wallet is connected to. Switch
+MetaMask to Sepolia or Base Sepolia and try again." This closes the exact
+gap Fix A missed: a call to an address with no code never reverts, so it
+needs its own guard, not just a simulate-first pattern.
+
+**E. `frontend/src/lib/WalletContext.tsx` + `frontend/src/components/Header.tsx`
+— proactive wrong-network banner.** Track the connected wallet's chain (via
+`window.ethereum.chainId`) in `WalletContext`, resolve it with the
+already-existing (previously unused) `getNetworkByChainId`, and expose
+`isSupportedNetwork` / `networkName`. `Header` renders a persistent warning
+bar when connected to an unsupported/undeployed chain, telling the user
+which chain they're on and to switch. This means the user finds out *before*
+clicking anything, instead of getting a burn-address warning mid-transaction
+— this is what should have surfaced immediately when the beneficiary
+account ended up on the wrong chain.
+
+---
+
 ## Files touched
 
 - `frontend/src/services/registryService.ts` — simulate-then-write helper,
-  applied to all write methods.
+  applied to all write methods; zero-address guard (i2 Fix D).
 - `frontend/src/app/execute/page.tsx` — eligibility gate for "Trigger grace period".
-- `frontend/src/lib/WalletContext.tsx` — clear `error` on pathname change.
+- `frontend/src/lib/WalletContext.tsx` — clear `error` on pathname change;
+  network/chain tracking (i2 Fix E).
 - `frontend/src/app/register/page.tsx` — will salt gets its own prominent card.
+- `frontend/src/components/Header.tsx` — wrong-network warning banner (i2 Fix E).
