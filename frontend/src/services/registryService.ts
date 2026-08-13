@@ -104,6 +104,31 @@ class RegistryService {
     return getContractAddresses().selfVerifier as Address;
   }
 
+  /**
+   * Simulate a write before sending it. If the call would revert (e.g. a
+   * timing gate like `StillActive`), this throws a decoded error *before*
+   * any transaction is sent — no gas spent, and no doomed transaction ever
+   * reaches gas estimation. Sending a doomed transaction directly can make
+   * some wallet/RPC combinations fall back to a huge, bogus gas estimate,
+   * which providers like Infura then reject outright ("gas limit too
+   * high") — a confusing infra-level error that hides the real, useful
+   * revert reason. Simulating first avoids that class of failure entirely.
+   */
+  private async simulateThenWrite(params: {
+    address: Address;
+    abi: any;
+    functionName: string;
+    args: readonly unknown[];
+    value?: bigint;
+  }): Promise<Hex> {
+    if (!this.walletClient) throw new Error("Wallet not connected");
+    const { request } = await this.publicClient.simulateContract({
+      ...params,
+      account: this.walletClient.account,
+    });
+    return (await this.walletClient.writeContract(request)) as Hex;
+  }
+
   initializeWithProvider(account: Address) {
     if (typeof window === "undefined" || !window.ethereum) {
       throw new Error("MetaMask not found");
@@ -157,15 +182,12 @@ class RegistryService {
    * real Self hub has no such function and this call would simply fail there.
    */
   async mockVerifySelf(address: Address): Promise<Hex> {
-    if (!this.walletClient) throw new Error("Wallet not connected");
-    const hash = (await this.walletClient.writeContract({
+    const hash = await this.simulateThenWrite({
       address: this.selfVerifierAddress,
       abi: MOCK_SELF_VERIFIER_ABI,
       functionName: "setVerified",
       args: [address, true],
-      account: this.walletClient.account,
-      chain: this.walletClient.chain,
-    })) as Hex;
+    });
     await this.waitForTransaction(hash);
     return hash;
   }
@@ -266,18 +288,16 @@ class RegistryService {
     if (!this.walletClient) throw new Error("Wallet not connected");
 
     if (totalUsdcBaseUnits > 0n) {
-      const approveHash = await this.walletClient.writeContract({
+      const approveHash = await this.simulateThenWrite({
         address: this.usdcAddress,
         abi: ERC20_ABI,
         functionName: "approve",
         args: [this.registryAddress, totalUsdcBaseUnits],
-        account: this.walletClient.account,
-        chain: this.walletClient.chain,
       });
       await this.waitForTransaction(approveHash);
     }
 
-    return (await this.walletClient.writeContract({
+    return await this.simulateThenWrite({
       address: this.registryAddress,
       abi: INHERITANCE_REGISTRY_ABI,
       functionName: "register",
@@ -293,57 +313,43 @@ class RegistryService {
         vetoThreshold,
       ],
       value: totalEthWei,
-      account: this.walletClient.account,
-      chain: this.walletClient.chain,
-    })) as Hex;
+    });
   }
 
   async checkIn(commitment: Hex): Promise<Hex> {
-    if (!this.walletClient) throw new Error("Wallet not connected");
-    return (await this.walletClient.writeContract({
+    return await this.simulateThenWrite({
       address: this.registryAddress,
       abi: INHERITANCE_REGISTRY_ABI,
       functionName: "checkIn",
       args: [commitment],
-      account: this.walletClient.account,
-      chain: this.walletClient.chain,
-    })) as Hex;
+    });
   }
 
   async triggerGracePeriod(commitment: Hex): Promise<Hex> {
-    if (!this.walletClient) throw new Error("Wallet not connected");
-    return (await this.walletClient.writeContract({
+    return await this.simulateThenWrite({
       address: this.registryAddress,
       abi: INHERITANCE_REGISTRY_ABI,
       functionName: "triggerGracePeriod",
       args: [commitment],
-      account: this.walletClient.account,
-      chain: this.walletClient.chain,
-    })) as Hex;
+    });
   }
 
   async veto(commitment: Hex): Promise<Hex> {
-    if (!this.walletClient) throw new Error("Wallet not connected");
-    return (await this.walletClient.writeContract({
+    return await this.simulateThenWrite({
       address: this.registryAddress,
       abi: INHERITANCE_REGISTRY_ABI,
       functionName: "veto",
       args: [commitment],
-      account: this.walletClient.account,
-      chain: this.walletClient.chain,
-    })) as Hex;
+    });
   }
 
   async executeWill(commitment: Hex, proof: Hex): Promise<Hex> {
-    if (!this.walletClient) throw new Error("Wallet not connected");
-    return (await this.walletClient.writeContract({
+    return await this.simulateThenWrite({
       address: this.registryAddress,
       abi: INHERITANCE_REGISTRY_ABI,
       functionName: "executeWill",
       args: [commitment, proof],
-      account: this.walletClient.account,
-      chain: this.walletClient.chain,
-    })) as Hex;
+    });
   }
 
   async claim(
@@ -353,15 +359,12 @@ class RegistryService {
     leafIndex: bigint,
     siblings: [Hex, Hex, Hex]
   ): Promise<Hex> {
-    if (!this.walletClient) throw new Error("Wallet not connected");
-    return (await this.walletClient.writeContract({
+    return await this.simulateThenWrite({
       address: this.registryAddress,
       abi: INHERITANCE_REGISTRY_ABI,
       functionName: "claim",
       args: [commitment, ethAmountWei, usdcAmountBaseUnits, leafIndex, siblings],
-      account: this.walletClient.account,
-      chain: this.walletClient.chain,
-    })) as Hex;
+    });
   }
 }
 

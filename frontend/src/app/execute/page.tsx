@@ -77,6 +77,23 @@ export default function ExecuteWill() {
     return now() > w.will.graceStart + w.will.gracePeriod;
   };
 
+  // Mirrors the contract's own StillActive() check in triggerGracePeriod —
+  // used to disable the button client-side instead of letting a doomed
+  // transaction reach the wallet (see registryService.simulateThenWrite for
+  // the other half of this fix: a decoded revert if this check is ever wrong).
+  const isInactivityElapsed = (w: MyWill) => now() > w.will.lastCheckIn + w.will.inactivityPeriod;
+
+  const formatTimeRemaining = (seconds: bigint) => {
+    const total = Number(seconds);
+    const days = Math.floor(total / (24 * 60 * 60));
+    const hours = Math.floor((total % (24 * 60 * 60)) / (60 * 60));
+    const minutes = Math.floor((total % (60 * 60)) / 60);
+    if (days > 1) return `${days} days, ${hours} hours`;
+    if (days === 1) return `1 day, ${hours} hours`;
+    if (hours > 0) return `${hours} hours, ${minutes} minutes`;
+    return `${Math.max(0, minutes)} minutes`;
+  };
+
   const openExecuteModal = (will: MyWill) => {
     setSelectedWill(will);
     setWitnessSalt("");
@@ -282,15 +299,26 @@ export default function ExecuteWill() {
                 ) : null}
 
                 {!will.will.executed && will.will.graceStart === 0n ? (
-                  <div className="mt-6 flex flex-wrap gap-3 border-t border-hairline pt-5">
-                    <Button
-                      variant="secondary"
-                      disabled={isProcessing}
-                      onClick={() => handleTriggerGrace(will)}
-                    >
-                      Trigger grace period
-                    </Button>
-                  </div>
+                  isInactivityElapsed(will) ? (
+                    <div className="mt-6 flex flex-wrap gap-3 border-t border-hairline pt-5">
+                      <Button
+                        variant="secondary"
+                        disabled={isProcessing}
+                        onClick={() => handleTriggerGrace(will)}
+                      >
+                        Trigger grace period
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-6 border-t border-hairline pt-5">
+                      <p className="t-caption text-ink-faint">
+                        Not yet eligible — available in{" "}
+                        {formatTimeRemaining(
+                          will.will.lastCheckIn + will.will.inactivityPeriod - now()
+                        )}
+                      </p>
+                    </div>
+                  )
                 ) : null}
               </VaultCard>
             );

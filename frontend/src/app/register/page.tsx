@@ -748,11 +748,27 @@ export default function RegisterWill() {
             </div>
           </div>
 
+          <div className="mt-4 rounded-card border border-hairline p-5">
+            <div className="t-eyebrow mb-2">Will salt · keep this safe</div>
+            <div className="flex items-center justify-between gap-3">
+              <code className="truncate font-mono text-[13px] text-ink">
+                {showPrivateKey ? willData.willSalt : "•".repeat(20)}
+              </code>
+              <div className="flex gap-3 text-ink-faint">
+                <button onClick={() => setShowPrivateKey((v) => !v)} aria-label="Toggle will salt visibility" className="hover:text-ink">
+                  {showPrivateKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+                <button onClick={() => copyToClipboard(willData.willSalt)} aria-label="Copy will salt" className="hover:text-seal">
+                  <Copy size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+
           <p className="t-caption mt-4 max-w-[560px]">
-            You&apos;ll need this commitment, your will salt (
-            <code className="font-mono">{willData.willSalt}</code>), and the
-            same description and beneficiary details to execute this will
-            later — the chain never stores them.
+            You&apos;ll need this commitment, your will salt, and the same
+            description and beneficiary details to execute this will later —
+            the chain never stores them.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3 border-t border-hairline pt-6">

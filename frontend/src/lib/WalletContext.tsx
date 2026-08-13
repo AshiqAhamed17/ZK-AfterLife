@@ -3,6 +3,7 @@
 
 import { registryService, type WillRecord, type MyWill } from '@/services/registryService';
 import { NoirService } from '@/services/noirService';
+import { usePathname } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Address, Hex } from 'viem';
 
@@ -59,6 +60,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const noirService = new NoirService();
+
+  // `error` is shared across every page via this one context. Without this,
+  // a failed action's error message on one page (e.g. /execute) keeps
+  // showing after navigating to another page (e.g. /checkin) that reads the
+  // same `error`, until some other wallet action happens to reset it.
+  // WalletProvider wraps the whole app in layout.tsx and isn't remounted on
+  // navigation, so clearing on pathname change is the one place that fixes
+  // this for every page at once.
+  const pathname = usePathname();
+  useEffect(() => {
+    setError(null);
+  }, [pathname]);
 
   useEffect(() => {
     const checkExistingConnection = async () => {
