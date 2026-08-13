@@ -22,7 +22,7 @@ interface DerivedStatus {
 }
 
 export default function CheckIn() {
-  const { isConnected, account, getMyWill, getGraceConfig, checkIn, connectWallet, isLoading, error } =
+  const { isConnected, account, getMyWill, checkIn, connectWallet, isLoading, error } =
     useWallet();
   const toast = useToast();
   const [status, setStatus] = useState<DerivedStatus | null>(null);
@@ -50,7 +50,7 @@ export default function CheckIn() {
         });
         return;
       }
-      const { inactivityPeriod } = await getGraceConfig();
+      const inactivityPeriod = my.will.inactivityPeriod;
       const now = BigInt(Math.floor(Date.now() / 1000));
       const isInGracePeriod = my.will.graceStart !== 0n;
       const graceEligibleAt = my.will.lastCheckIn + inactivityPeriod;

@@ -73,10 +73,8 @@ export default function ExecuteWill() {
   const now = () => BigInt(Math.floor(Date.now() / 1000));
 
   const isGraceElapsed = (w: MyWill) => {
-    // gracePeriod isn't known per-will here; approximate readiness client-side
-    // is not reliable without the contract's gracePeriod, so "ready" just
-    // means grace has started — the contract enforces the real elapsed check.
-    return w.will.graceStart !== 0n;
+    if (w.will.graceStart === 0n) return false;
+    return now() > w.will.graceStart + w.will.gracePeriod;
   };
 
   const openExecuteModal = (will: MyWill) => {

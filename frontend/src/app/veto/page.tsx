@@ -14,11 +14,10 @@ import type { Hex } from "viem";
 import type { MyWill } from "@/services/registryService";
 
 export default function Veto() {
-  const { isConnected, account, getAllWills, isVetoMember, veto, connectWallet, isLoading, error } =
+  const { isConnected, account, getAllWills, isVetoMemberOf, veto, connectWallet, isLoading, error } =
     useWallet();
   const toast = useToast();
   const [vetoableWills, setVetoableWills] = useState<MyWill[]>([]);
-  const [amIVetoMember, setAmIVetoMember] = useState(false);
   const [selectedWill, setSelectedWill] = useState<MyWill | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [localError, setLocalError] = useState("");
@@ -33,9 +32,12 @@ export default function Veto() {
 
   const loadVetoData = async () => {
     try {
-      const [all, member] = await Promise.all([getAllWills(), isVetoMember(account!)]);
-      setAmIVetoMember(member);
-      setVetoableWills(all.filter((w) => w.will.graceStart !== 0n && !w.will.executed));
+      const all = await getAllWills();
+      const inGrace = all.filter((w) => w.will.graceStart !== 0n && !w.will.executed);
+      const membership = await Promise.all(
+        inGrace.map((w) => isVetoMemberOf(w.commitment, account!))
+      );
+      setVetoableWills(inGrace.filter((_, i) => membership[i]));
     } catch (err) {
       console.error("Failed to load veto data:", err);
       setLocalError("Failed to load veto data. Please try again.");
@@ -105,16 +107,6 @@ export default function Veto() {
       <div className="t-eyebrow mb-3">VETO</div>
       <h1 className="t-h1 mb-10">Stop a premature execution.</h1>
 
-      {!amIVetoMember ? (
-        <VaultCard className="mb-8">
-          <p className="t-body text-ink-muted">
-            Your connected address isn&apos;t part of the veto committee. You
-            can see wills currently in grace, but only committee members can
-            cast a veto.
-          </p>
-        </VaultCard>
-      ) : null}
-
       <div className="mb-8 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
@@ -154,20 +146,18 @@ export default function Veto() {
                 <DataRow label="Grace started" value={formatDate(will.will.graceStart)} />
                 <DataRow label="Commitment" address={will.commitment} />
 
-                {amIVetoMember ? (
-                  <div className="mt-6 border-t border-hairline pt-5">
-                    <Button
-                      variant="destructive"
-                      disabled={isProcessing}
-                      onClick={() => {
-                        setSelectedWill(will);
-                        setShowVetoModal(true);
-                      }}
-                    >
-                      Veto execution
-                    </Button>
-                  </div>
-                ) : null}
+                <div className="mt-6 border-t border-hairline pt-5">
+                  <Button
+                    variant="destructive"
+                    disabled={isProcessing}
+                    onClick={() => {
+                      setSelectedWill(will);
+                      setShowVetoModal(true);
+                    }}
+                  >
+                    Veto execution
+                  </Button>
+                </div>
               </VaultCard>
             );
           })}
