@@ -129,6 +129,17 @@ export default function RegisterWill() {
     if (members.some((m) => !/^0x[0-9a-fA-F]{40}$/.test(m))) {
       return "Every trusted circle member needs a valid address";
     }
+    // Check for duplicate addresses (case-insensitive)
+    const lowerCaseMembers = members.map((m) => m.toLowerCase());
+    const uniqueMembers = new Set(lowerCaseMembers);
+    if (uniqueMembers.size !== members.length) {
+      return "Trusted circle members must all be different addresses";
+    }
+    // Check for zero address
+    const zeroAddress = "0x0000000000000000000000000000000000000000";
+    if (members.some((m) => m.toLowerCase() === zeroAddress)) {
+      return "The zero address can't be a trusted circle member";
+    }
     const threshold = parseInt(willData.vetoThreshold || "0", 10);
     if (!threshold || threshold < 1 || threshold > members.length) {
       return "Veto threshold must be between 1 and the number of trusted circle members";

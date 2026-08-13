@@ -364,6 +364,7 @@ contract InheritanceRegistry is ReentrancyGuard {
         return false;
     }
 
+    /// @notice Execute a will after grace period elapses with no threshold veto, verifying the proof against the stored Merkle root.
     function executeWill(bytes32 willCommitment, bytes calldata proof) external {
         Will storage w = wills[willCommitment];
         if (!w.exists) revert WillNotRegistered();
