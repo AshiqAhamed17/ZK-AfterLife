@@ -131,7 +131,18 @@ async function main() {
     await ownerPage.getByLabel("USDC").fill(USDC_AMOUNT);
     await ownerPage.getByRole("button", { name: "Next" }).click();
 
-    log("Step 3: review -> seal will (real on-chain register tx)");
+    // 0.001 days ≈ 86s — comfortably above the contract's 60s floor
+    // (MIN_INACTIVITY_PERIOD/MIN_GRACE_PERIOD) while keeping the harness fast.
+    // Real users choose days/months here; this value only exists to make a
+    // real-time E2E run practical.
+    log("Step 3: trusted circle + timing");
+    await ownerPage.getByLabel("Inactivity period (days)").fill("0.001");
+    await ownerPage.getByLabel("Grace period (days)").fill("0.001");
+    await ownerPage.getByLabel("Member 01").fill(OWNER);
+    await ownerPage.getByLabel("Veto threshold").fill("1");
+    await ownerPage.getByRole("button", { name: "Next" }).click();
+
+    log("Step 4: review -> seal will (real on-chain register tx)");
     await ownerPage.getByRole("button", { name: "Seal will" }).click();
     await ownerPage.getByText("Your will is sealed.").waitFor({ timeout: 30000 });
 
@@ -146,7 +157,7 @@ async function main() {
 
     // ---- 2. Trigger grace period once inactivity elapses (real wall clock) ----
     log("Waiting for inactivity period to elapse (real time)...");
-    await sleep(22000);
+    await sleep(95000);
 
     log("Navigating to /execute to trigger grace period");
     await ownerPage.goto(`${APP_URL}/execute`, { waitUntil: "domcontentloaded" });
@@ -163,7 +174,7 @@ async function main() {
 
     // ---- 3. Execute once grace elapses (real proof, real tx) ----
     log("Waiting for grace period to elapse (real time)...");
-    await sleep(17000);
+    await sleep(95000);
 
     await ownerPage.reload({ waitUntil: "domcontentloaded" });
     await ownerPage.getByRole("button", { name: "Refresh" }).click();
